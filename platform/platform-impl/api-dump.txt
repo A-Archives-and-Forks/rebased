@@ -2,7 +2,7 @@ com.intellij.application.options.OptionsContainingConfigurable
 - processListOptions():java.util.Set
 - processListOptionsWithPaths():java.util.Map
 a:com.intellij.application.options.colors.AbstractFontOptionsPanel
-- fireSchemeChanged():V
+- fireSchemeReset(com.intellij.openapi.editor.colors.FontPreferences):V
 com.intellij.application.options.colors.ColorAndFontPanelFactory
 - sf:EP_NAME:com.intellij.openapi.extensions.ExtensionPointName
 - a:createPanel(com.intellij.application.options.colors.ColorAndFontOptions):com.intellij.application.options.colors.NewColorAndFontPanel
@@ -13,6 +13,7 @@ com.intellij.application.options.colors.ColorAndFontSettingsListener
 - java.util.EventListener
 - a:fontChanged():V
 - a:schemeChanged(java.lang.Object):V
+- schemeReset(com.intellij.openapi.editor.colors.FontPreferences):V
 - a:selectedOptionChanged(java.lang.Object):V
 - a:selectionInPreviewChanged(java.lang.String):V
 - a:settingsChanged():V
@@ -272,13 +273,11 @@ com.intellij.ide.navigationToolbar.NavBarModelExtension
 - sf:EP_NAME:com.intellij.openapi.extensions.ExtensionPointName
 - a:additionalRoots(com.intellij.openapi.project.Project):java.util.Collection
 - a:adjustElement(com.intellij.psi.PsiElement):com.intellij.psi.PsiElement
-- getData(java.lang.String,com.intellij.openapi.actionSystem.DataProvider):java.lang.Object
 - getIcon(java.lang.Object):javax.swing.Icon
 - getLeafElement(com.intellij.openapi.actionSystem.DataContext):com.intellij.psi.PsiElement
 - getLeafElement(com.intellij.openapi.actionSystem.DataMap):com.intellij.psi.PsiElement
 - a:getParent(com.intellij.psi.PsiElement):com.intellij.psi.PsiElement
 - getPopupMenuGroup(com.intellij.openapi.actionSystem.DataContext):java.lang.String
-- getPopupMenuGroup(com.intellij.openapi.actionSystem.DataProvider):java.lang.String
 - a:getPresentableText(java.lang.Object):java.lang.String
 - getPresentableText(java.lang.Object,Z):java.lang.String
 - normalizeChildren():Z
@@ -321,6 +320,9 @@ com.intellij.ide.plugins.PluginManagerMain$PluginEnabler
 com.intellij.ide.plugins.PluginStateListener
 - a:install(com.intellij.ide.plugins.IdeaPluginDescriptor):V
 - uninstall(com.intellij.ide.plugins.IdeaPluginDescriptor):V
+f:com.intellij.ide.plugins.PluginUpdateStatus$Update
+- <init>(com.intellij.ide.plugins.IdeaPluginDescriptor,com.intellij.openapi.updateSettings.impl.PluginDownloader):V
+- f:getPluginDownloader():com.intellij.openapi.updateSettings.impl.PluginDownloader
 f:com.intellij.ide.plugins.RepositoryHelper
 com.intellij.ide.plugins.UIComponentVirtualFile$Content
 - a:createComponent():javax.swing.JComponent
@@ -382,10 +384,10 @@ com.intellij.ide.trustedProjects.TrustedProjectsLocator$LocatedProject
 f:com.intellij.ide.ui.MaximizeDialogKt
 - sf:canBeMaximized(javax.swing.JDialog):Z
 - sf:canBeNormalized(javax.swing.JDialog):Z
-- sf:isMaximizable(javax.swing.JDialog):Z
+- sf:isMaximizeButtonShown(javax.swing.JDialog):Z
 - sf:maximize(javax.swing.JDialog):V
 - sf:normalize(javax.swing.JDialog):V
-- sf:setMaximizable(javax.swing.JDialog,Z):V
+- sf:setMaximizeButtonShown(javax.swing.JDialog,Z):V
 - sf:toggleMaximized(javax.swing.JDialog):V
 com.intellij.ide.ui.OptionsSearchTopHitProvider$ApplicationLevelProvider
 - com.intellij.ide.SearchTopHitProvider
@@ -874,6 +876,8 @@ com.intellij.openapi.fileChooser.ex.FileLookup$LookupFile
 - a:setMacro(java.lang.String):V
 com.intellij.openapi.fileChooser.ex.FileLookup$LookupFilter
 - a:isAccepted(com.intellij.openapi.fileChooser.ex.FileLookup$LookupFile):Z
+a:com.intellij.openapi.fileEditor.ex.FileEditorManagerEx
+- updateFileName(com.intellij.openapi.vfs.VirtualFile):V
 com.intellij.openapi.fileEditor.ex.FileEditorProviderManager
 - sf:Companion:com.intellij.openapi.fileEditor.ex.FileEditorProviderManager$Companion
 - a:getDumbUnawareProviders(com.intellij.openapi.project.Project,com.intellij.openapi.vfs.VirtualFile,java.util.Set,kotlin.coroutines.Continuation):java.lang.Object
@@ -1720,6 +1724,7 @@ c:com.intellij.ui.tree.ui.DefaultTreeUI
 - p:isLocationInExpandControl(javax.swing.tree.TreePath,I,I):Z
 - p:isToggleEvent(java.awt.event.MouseEvent):Z
 - paint(java.awt.Graphics,javax.swing.JComponent):V
+- p:selectPathForEvent(javax.swing.tree.TreePath,java.awt.event.MouseEvent):V
 - p:setLargeModel(Z):V
 - p:setModel(javax.swing.tree.TreeModel):V
 - p:setRootVisible(Z):V

@@ -98,7 +98,7 @@
 
     <applicationService serviceInterface="com.intellij.openapi.vfs.pointers.VirtualFilePointerManager"
                         serviceImplementation="com.intellij.openapi.vfs.impl.VirtualFilePointerManagerImpl"/>
-    <vfs.asyncListener implementation="com.intellij.openapi.vfs.impl.VirtualFilePointerManagerImpl$MyAsyncFileListener"/>
+    <vfs.asyncListenerBackgroundable implementation="com.intellij.openapi.vfs.impl.VirtualFilePointerManagerImpl$MyAsyncFileListener"/>
     <persistentFsConnectionListener
       implementation="com.intellij.openapi.vfs.impl.VirtualFilePointerManagerImpl$MyPersistentFsConnectionListener"/>
 
@@ -221,6 +221,7 @@
 
     <applicationService serviceImplementation="com.intellij.ui.jcef.JBCefStartup" preload="notHeadless" os="mac"/>
     <cachesInvalidator implementation="com.intellij.ui.jcef.JBCefAppCacheInvalidator" order="last"/>
+    <cefNativeBundleProvider implementation="com.intellij.ui.jcef.JBCefDefaultNativeBundleProvider" order="last"/>
 
     <applicationService serviceInterface="com.intellij.ide.ui.IdeUiService" open="true"
                         serviceImplementation="com.intellij.openapi.fileEditor.impl.IdeUiServiceImpl"/>
@@ -246,7 +247,7 @@
                     serviceImplementation="com.intellij.configurationStore.ProjectIdManagerImpl"
                     testServiceImplementation="com.intellij.configurationStore.MockProjectIdManager"/>
 
-    <applicationService serviceInterface="com.intellij.openapi.wm.impl.FrameTitleBuilder"
+    <applicationService serviceInterface="com.intellij.openapi.wm.impl.FrameTitleBuilder" open="true"
                         serviceImplementation="com.intellij.openapi.wm.impl.PlatformFrameTitleBuilder"/>
 
     <applicationService serviceInterface="com.intellij.openapi.actionSystem.ActionUpdaterInterceptor" open="true"
@@ -550,7 +551,7 @@
     <projectService serviceInterface="com.intellij.openapi.util.WindowStateService"
                     serviceImplementation="com.intellij.openapi.util.WindowStateProjectService"/>
 
-    <applicationService serviceInterface="com.intellij.ide.script.IdeScriptEngineManager"
+    <applicationService serviceInterface="com.intellij.ide.script.IdeScriptEngineManager" open="true"
                         serviceImplementation="com.intellij.ide.script.IdeScriptEngineManagerImpl"/>
     <statistics.counterUsagesCollector implementationClass="com.intellij.openapi.fileEditor.impl.IdeScriptEngineUsageCollector"/>
 
@@ -1158,7 +1159,6 @@
                  description="The data from the recorder with selected id will be sent"/>
 
     <vfs.local.pluggableFileWatcher implementation="com.intellij.openapi.vfs.impl.local.NativeFileWatcherImpl"/>
-    <vfs.local.pluggableFileWatcher implementation="com.intellij.openapi.vfs.impl.wsl.WslFileWatcher"/>
     <vfs.local.pluggableFileWatcher implementation="com.intellij.openapi.vfs.impl.eel.EelFileWatcher"/>
 
     <virtualFileSystem key="dummy" implementationClass="com.intellij.openapi.vfs.ex.dummy.DummyFileSystem"/>
@@ -1349,6 +1349,13 @@
     <registryKey key="jdk.auto.run.configurations" defaultValue="true" description="Tries to find an SDK for a run configuration"/>
     <registryKey key="jdk.downloader.show.other.arch" defaultValue="false" description="Show download options for JDKs targeting a different architecture"/>
     <registryKey key="sdk.download.consent" defaultValue="false" description="Prompts before downloading SDKs if false"/>
+
+    <registryKey defaultValue="true"
+                 description="Indicates whether the platform is allowed to update actions without the read lock and perform actions without the write-intent lock. Disabling this flag makes the IDE acquiring locks in both these cases"
+                 key="actions.allow.update.and.perform.without.rw.lock"/>
+    <registryKey defaultValue="false"
+                 description="Whether actions with `getActionUpdateThread() == EDT` are automatically updated without read lock and performed without the write lock."
+                 key="actions.update.and.perform.edt.actions.without.rw.lock"/>
 
     <smartSelectProvider implementation="com.intellij.ui.tree.TreeSmartSelectProvider"/>
 
@@ -1563,10 +1570,10 @@
     <applicationService serviceInterface="com.intellij.ui.AutoScrollToSourceTaskManager"
                         serviceImplementation="com.intellij.ui.AutoScrollToSourceTaskManagerImpl"/>
 
-    <applicationService serviceInterface="com.intellij.logCollector.CollectZippedLogsService"
-                        serviceImplementation="com.intellij.platform.ide.impl.logsUploader.CollectZippedLogsServiceImpl"/>
-
     <applicationService serviceImplementation="com.intellij.openapi.updateSettings.impl.UpdateCheckerService" headlessImplementation="" open="true"/>
+    <applicationService
+      serviceInterface="com.intellij.openapi.updateSettings.impl.UpdateCheckerPluginsFacade"
+      serviceImplementation="com.intellij.openapi.updateSettings.impl.UpdateCheckerPluginsFacadeImpl"/>
     <postStartupActivity implementation="com.intellij.openapi.updateSettings.impl.UpdateCheckerProjectActivity" order="last"/>
 
     <registryKey key="ide.enable.notification.trace.data.sharing" defaultValue="true" description="Enables notification about sharing trace data"/>
@@ -1737,7 +1744,6 @@
     <advancedSetting id="editor.normalize.splits" default="false" groupKey="group.advanced.settings.editor.tabs"/>
     <advancedSetting id="editor.keep.pinned.tabs.on.left" default="true" groupKey="group.advanced.settings.editor.tabs"/>
     <advancedSetting id="terminal.buffer.max.lines.count" default="5000" groupKey="group.advanced.settings.terminal"/>
-    <advancedSetting id="terminal.escape.moves.focus.to.editor" default="true" groupKey="group.advanced.settings.terminal"/>
     <advancedSetting id="terminal.type.ahead" default="true" groupKey="group.advanced.settings.terminal"/>
     <advancedSetting id="terminal.type.ahead.latency.threshold" default="100" groupKey="group.advanced.settings.terminal"/>
     <advancedSetting id="terminal.use.1.0.line.spacing.for.alternative.screen.buffer" default="true"
@@ -1828,6 +1834,7 @@
                              key="settings.name" bundle="messages.MinimapBundle"/>
     <registryKey key="popup.advertiser.speed.search" defaultValue="false" description="Shows speed search advertiser in popups"/>
     <registryKey key="wayland.true.popups" defaultValue="true" description="Show popups in Wayland as true popups (allows remembering the location, but limits them to the IDE window)"/>
+    <registryKey key="wayland.screen.vInsets" defaultValue="50" description="The sum of vertical screen insets (top + bottom) assumed for Wayland (because it doesn't report the actual insets)"/>
     <actionPromoter implementation="com.intellij.ide.actions.speedSearch.SpeedSearchActionPromoter"/>
 
     <fileEditorProvider id="learnIde" implementation="com.intellij.openapi.wm.impl.welcomeScreen.learnIde.editorTab.LearnIdeFileEditorProvider"/>
@@ -1852,6 +1859,7 @@
     <idePerformanceListener implementation="com.intellij.diagnostic.FusFreezeReporter"/>
 
     <applicationActivity implementation="com.intellij.internal.DumpPluginDescriptorsOnAppStartTrigger"/>
+    <applicationActivity implementation="com.intellij.ide.plugins.PluginInitializationErrorReporterStartupTrigger"/>
 
     <registryKey key="search.everywhere.footer.extended.info"
                  defaultValue="true"
@@ -2031,6 +2039,9 @@
     <openAnotherToolHandler implementation="com.intellij.openapi.updateSettings.impl.upgradeToUltimate.installation.install.TryUltimateActionHandler"/>
 
 
+    <aboutPopupDescriptionProvider implementation="com.intellij.diagnostic.ReporterIdForEAAutoReporters"/>
+    <backgroundPostStartupActivity implementation="com.intellij.diagnostic.ReporterIdLoggerActivity"/>
+
     <!--<editor.rd.localSupport filetype="PLAIN_TEXT"/> IJPL-189393 -->
 
     <remote.customDataContextSerializer implementation="com.intellij.openapi.editor.impl.HonorCamelWordsDataContextSerializer"/>
@@ -2041,6 +2052,16 @@
 
     <applicationService serviceInterface="com.intellij.configurationStore.defaults.DefaultSettingsService" open="true"
                         serviceImplementation="com.intellij.configurationStore.defaults.DefaultSettingsServiceImpl" />
+
+    <!-- Remove all this stuff when the notification is no longer needed -->
+    <typedHandler implementation="com.intellij.ide.ui.WaylandUserActivityTracker" />
+    <editorFactoryMouseListener implementation="com.intellij.ide.ui.WaylandUserActivityTracker" />
+    <editorFactoryMouseMotionListener implementation="com.intellij.ide.ui.WaylandUserActivityTracker" />
+    <registryKey key="wayland.notification.delay.after.first.activity" defaultValue="20"
+                 description="Show the notification about the native Wayland toolkit after this many minutes have passed since the first user activity" />
+    <registryKey key="wayland.notification.delay.after.previous.activity" defaultValue="1"
+                 description="Show the notification about the native Wayland toolkit after this many minutes have passed since the previous user activity" />
+    <notificationGroup id="Wayland" displayType="BALLOON" bundle="messages.IdeBundle" key="notification.group.wayland" isLogByDefault="true"/>
   </extensions>
 
   <applicationListeners>
@@ -2120,6 +2141,9 @@
 
     <listener class="com.intellij.openapi.editor.impl.ad.markup.AdDocumentMarkupManagerImpl$AdDocumentMarkupListener"
               topic="com.intellij.openapi.editor.impl.DocumentMarkupListener" />
+
+    <listener class="com.intellij.ide.file.XdgTrashBinPreloader" topic="com.intellij.ide.AppLifecycleListener"
+              os="unix" activeInTestMode="false" activeInHeadlessMode="false"/>
   </applicationListeners>
 
   <projectListeners>

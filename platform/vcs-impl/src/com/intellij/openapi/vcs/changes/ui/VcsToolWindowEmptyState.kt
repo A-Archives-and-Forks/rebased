@@ -4,9 +4,14 @@ package com.intellij.openapi.vcs.changes.ui
 import com.intellij.icons.AllIcons
 import com.intellij.ide.IdeBundle
 import com.intellij.ide.actions.ActivateToolWindowAction
-import com.intellij.openapi.actionSystem.*
+import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.ActionPlaces
+import com.intellij.openapi.actionSystem.AnAction
+import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys.PROJECT
 import com.intellij.openapi.actionSystem.CommonDataKeys.VIRTUAL_FILE
+import com.intellij.openapi.actionSystem.DataContext
+import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.actionSystem.IdeActions.ACTION_CONTEXT_HELP
 import com.intellij.openapi.actionSystem.PlatformCoreDataKeys.HELP_ID
 import com.intellij.openapi.actionSystem.ex.ActionUtil.invokeAction
@@ -25,6 +30,7 @@ import com.intellij.ui.content.ContentManagerEvent
 import com.intellij.ui.content.ContentManagerListener
 import com.intellij.ui.content.impl.ContentManagerImpl
 import com.intellij.util.ui.StatusText
+import com.intellij.vcs.commit.CommitModeManager
 import org.jetbrains.annotations.ApiStatus
 import org.jetbrains.annotations.Nls
 import java.awt.event.InputEvent
@@ -111,7 +117,7 @@ internal class ActivateCommitToolWindowAction : ActivateToolWindowAction(ToolWin
     templatePresentation.icon = AllIcons.Toolwindows.ToolWindowCommit
   }
 
-  override fun hasEmptyState(project: Project): Boolean = ChangesViewContentManager.isCommitToolWindowShown(project)
+  override fun hasEmptyState(project: Project): Boolean = CommitModeManager.isCommitToolWindowEnabled(project)
 
   override fun update(e: AnActionEvent) {
     val project = e.project

@@ -13,6 +13,7 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.jps.dependency.DependencyGraph;
 import org.jetbrains.jps.dependency.GraphConfiguration;
 import org.jetbrains.jps.dependency.impl.DependencyGraphImpl;
+import org.jetbrains.jps.dependency.kotlin.KotlinSubclassesIndex;
 import org.jetbrains.jps.dependency.kotlin.LookupsIndex;
 
 import java.io.*;
@@ -115,13 +116,21 @@ public class StorageManager implements CloseableExt {
     int maxBuilderThreads = Math.min(8, Runtime.getRuntime().availableProcessors());
     var containerFactory = new PersistentMVStoreMapletFactory(filePath, maxBuilderThreads);
 
-    if (isKotlinCriDataGenerationEnabled) {
-      return new DependencyGraphImpl(
-        containerFactory,
-        DependencyGraphImpl.IndexFactory.create(LookupsIndex::new)
-      );
-    } else {
-      return new DependencyGraphImpl(containerFactory);
+    try {
+      if (isKotlinCriDataGenerationEnabled) {
+        return new DependencyGraphImpl(
+          containerFactory,
+          DependencyGraphImpl.IndexFactory.create(LookupsIndex::new, KotlinSubclassesIndex::new)
+        );
+      }
+      else {
+        return new DependencyGraphImpl(containerFactory);
+      }
+    }
+    catch (Throwable e) {
+      // treat any unexpected exception on graph initialization as graph storage corruption
+      // the calling logic will decide on the way the error is handled
+      throw new IOException(e);
     }
   }
 

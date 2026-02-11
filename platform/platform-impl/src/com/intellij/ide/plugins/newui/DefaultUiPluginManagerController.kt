@@ -5,7 +5,7 @@ import com.intellij.ide.IdeBundle
 import com.intellij.ide.plugins.*
 import com.intellij.ide.plugins.DynamicPlugins.allowLoadUnloadWithoutRestart
 import com.intellij.ide.plugins.PluginManagerCore.buildPluginIdMap
-import com.intellij.ide.plugins.PluginManagerCore.getLoadingError
+import com.intellij.ide.plugins.PluginManagerCore.getPluginNonLoadReason
 import com.intellij.ide.plugins.PluginManagerCore.getPluginSet
 import com.intellij.ide.plugins.PluginManagerCore.isCompatible
 import com.intellij.ide.plugins.PluginManagerCore.isDisabled
@@ -429,7 +429,7 @@ object DefaultUiPluginManagerController : UiPluginManagerController {
   }
 
   override suspend fun loadDescriptorById(pluginId: PluginId): PluginUiModel? {
-    val updateData = service<UpdateCheckerFacade>().getInternalPluginUpdates(updateablePluginsMap = mutableMapOf(pluginId to null))
+    val updateData = UpdateCheckerFacade.getInstance().getPluginUpdates(plugins = listOf(pluginId))
     return updateData.pluginUpdates.all.asSequence()
       .filter { it.pluginVersion != null }
       .map { it.uiModel ?: PluginUiModelAdapter(it.descriptor) }
@@ -530,7 +530,7 @@ object DefaultUiPluginManagerController : UiPluginManagerController {
   }
 
   override suspend fun updateDescriptorsForInstalledPlugins() {
-    service<UpdateCheckerFacade>().updateDescriptorsForInstalledPlugins(InstalledPluginsState.getInstance())
+    UpdateCheckerFacade.getInstance().updateDescriptorsForInstalledPlugins()
   }
 
   override suspend fun performUninstall(sessionId: String, pluginId: PluginId): Boolean {
@@ -796,7 +796,11 @@ object DefaultUiPluginManagerController : UiPluginManagerController {
       return CheckErrorsResult()
     }
 
-    val loadingError = getLoadingError(pluginId)
+    if (session.isPluginDisabled(pluginId)) {
+      return CheckErrorsResult() // suppress any errors for plugins that are marked disabled
+    }
+
+    val loadingError = getPluginNonLoadReason(pluginId)
     val disabledDependency = if (loadingError is PluginDependencyIsDisabled) loadingError.dependencyId else null
     if (disabledDependency == null) {
       return CheckErrorsResult(loadingError = loadingError?.shortMessage, isDisabledDependencyError = true)

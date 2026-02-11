@@ -5,7 +5,14 @@ import com.intellij.collaboration.async.collectScoped
 import com.intellij.collaboration.async.launchNow
 import com.intellij.collaboration.async.mapScoped
 import com.intellij.collaboration.ui.codereview.diff.DiscussionsViewOption
-import com.intellij.collaboration.ui.codereview.editor.*
+import com.intellij.collaboration.ui.codereview.editor.CodeReviewActiveRangesTracker
+import com.intellij.collaboration.ui.codereview.editor.CodeReviewCommentableEditorModel
+import com.intellij.collaboration.ui.codereview.editor.CodeReviewEditorGutterChangesRenderer
+import com.intellij.collaboration.ui.codereview.editor.CodeReviewEditorGutterControlsRenderer
+import com.intellij.collaboration.ui.codereview.editor.CodeReviewEditorInlayRangeOutlineUtils
+import com.intellij.collaboration.ui.codereview.editor.CodeReviewNavigableEditorViewModel
+import com.intellij.collaboration.ui.codereview.editor.ReviewInEditorUtil
+import com.intellij.collaboration.ui.codereview.editor.renderInlays
 import com.intellij.collaboration.util.HashingUtil
 import com.intellij.collaboration.util.getOrNull
 import com.intellij.openapi.actionSystem.ActionManager
@@ -23,8 +30,21 @@ import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.util.cancelOnDispose
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.supervisorScope
+import kotlinx.coroutines.withContext
 import org.jetbrains.plugins.github.pullrequest.config.GithubPullRequestsProjectUISettings
 import org.jetbrains.plugins.github.pullrequest.ui.GHPRProjectViewModel
 
@@ -99,7 +119,7 @@ private suspend fun showReview(project: Project, settings: GithubPullRequestsPro
   withContext(Dispatchers.Main.immediate) {
     val reviewHeadContent = fileVm.originalContent.mapNotNull { it?.result?.getOrThrow() }.first()
     val cs = this
-    val model = GHPRReviewFileEditorModel(cs, settings, fileVm) showEditor@{ changeToShow, lineIdx ->
+    val model = GHPRReviewFileEditorModel(cs, project, settings, fileVm) showEditor@{ changeToShow, lineIdx ->
       val file = changeToShow.filePathAfter?.virtualFile ?: return@showEditor
       val fileOpenDescriptor = OpenFileDescriptor(project, file, lineIdx, 0)
       FileEditorManager.getInstance(project).openFileEditor(fileOpenDescriptor, true)

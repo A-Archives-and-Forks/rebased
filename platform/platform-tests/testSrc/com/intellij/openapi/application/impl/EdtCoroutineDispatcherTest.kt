@@ -1,13 +1,13 @@
-// Copyright 2000-2025 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
+// Copyright 2000-2026 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package com.intellij.openapi.application.impl
 
-import com.intellij.ide.IdeEventQueue
 import com.intellij.openapi.application.*
 import com.intellij.openapi.application.ex.ApplicationManagerEx
 import com.intellij.openapi.progress.runBlockingMaybeCancellable
 import com.intellij.platform.ide.progress.ModalTaskOwner
 import com.intellij.platform.ide.progress.runWithModalProgressBlocking
 import com.intellij.testFramework.LeakHunter
+import com.intellij.testFramework.TestLoggerFactory
 import com.intellij.testFramework.assertErrorLogged
 import com.intellij.testFramework.common.timeoutRunBlocking
 import com.intellij.testFramework.junit5.TestApplication
@@ -128,11 +128,13 @@ class EdtCoroutineDispatcherTest {
   @UiThreadDispatcherTest
   fun `switch to EDT under read lock fails with ISE`(dispatcher: CoroutineContext): Unit = timeoutRunBlocking {
     readAction {
-      assertThrows<IllegalStateException> {
-        runBlockingMaybeCancellable {
-          launch(Dispatchers.Default) {
-            withContext(dispatcher) {
-              fail<Nothing>()
+      assertThrows<TestLoggerFactory.TestLoggerAssertionError> {
+        assertErrorLogged<IllegalStateException> {
+          runBlockingMaybeCancellable {
+            launch(Dispatchers.Default) {
+              withContext(dispatcher) {
+                fail<Nothing>()
+              }
             }
           }
         }
@@ -383,8 +385,8 @@ class EdtCoroutineDispatcherTest {
         }
       }
       finally {
-        assertThat(application.isReadAccessAllowed).isEqualTo(!useNonBlockingFlushQueue)
-        assertThat(application.isWriteIntentLockAcquired).isEqualTo(!useNonBlockingFlushQueue)
+        assertThat(application.isReadAccessAllowed).isFalse
+        assertThat(application.isWriteIntentLockAcquired).isFalse
         assertThat(application.isWriteAccessAllowed).isFalse
       }
     }
@@ -507,7 +509,6 @@ class EdtCoroutineDispatcherTest {
 
   @Test
   fun `UI coroutine can be executed earlier then EDT coroutine`(): Unit = timeoutRunBlocking {
-    Assumptions.assumeTrue { useNonBlockingFlushQueue }
     val uiExecuted = AtomicBoolean()
     val edtExecuted = AtomicBoolean()
     backgroundWriteAction {

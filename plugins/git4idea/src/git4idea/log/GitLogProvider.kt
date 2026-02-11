@@ -1,7 +1,10 @@
 // Copyright 2000-2025 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package git4idea.log
 
+import com.intellij.dvcs.repo.getRepositoryUnlessFresh
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.components.service
+import com.intellij.openapi.components.serviceAsync
 import com.intellij.openapi.diagnostic.Attachment
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.project.Project
@@ -18,13 +21,38 @@ import com.intellij.util.ArrayUtilRt
 import com.intellij.util.CollectConsumer
 import com.intellij.util.Consumer
 import com.intellij.util.containers.ContainerUtil
-import com.intellij.vcs.log.*
-import com.intellij.vcs.log.VcsLogFilterCollection.*
+import com.intellij.vcs.log.Hash
+import com.intellij.vcs.log.TimedVcsCommit
+import com.intellij.vcs.log.VcsCommitMetadata
+import com.intellij.vcs.log.VcsFullCommitDetails
+import com.intellij.vcs.log.VcsLogDiffHandler
+import com.intellij.vcs.log.VcsLogFilterCollection
+import com.intellij.vcs.log.VcsLogFilterCollection.BRANCH_FILTER
+import com.intellij.vcs.log.VcsLogFilterCollection.DATE_FILTER
+import com.intellij.vcs.log.VcsLogFilterCollection.PARENT_FILTER
+import com.intellij.vcs.log.VcsLogFilterCollection.RANGE_FILTER
+import com.intellij.vcs.log.VcsLogFilterCollection.REVISION_FILTER
+import com.intellij.vcs.log.VcsLogFilterCollection.STRUCTURE_FILTER
+import com.intellij.vcs.log.VcsLogFilterCollection.TEXT_FILTER
+import com.intellij.vcs.log.VcsLogFilterCollection.USER_FILTER
+import com.intellij.vcs.log.VcsLogObjectsFactory
+import com.intellij.vcs.log.VcsLogProperties
+import com.intellij.vcs.log.VcsLogProvider
+import com.intellij.vcs.log.VcsLogProviderRequirementsEx
+import com.intellij.vcs.log.VcsLogRangeFilter
+import com.intellij.vcs.log.VcsLogRefManager
+import com.intellij.vcs.log.VcsLogRefresher
+import com.intellij.vcs.log.VcsRef
+import com.intellij.vcs.log.VcsRefsContainer
+import com.intellij.vcs.log.VcsUser
 import com.intellij.vcs.log.data.VcsLogSorter
 import com.intellij.vcs.log.graph.PermanentGraph
 import com.intellij.vcs.log.graph.impl.facade.PermanentGraphImpl
 import com.intellij.vcs.log.graph.impl.print.GraphColorGetterByNodeFactory
-import com.intellij.vcs.log.impl.*
+import com.intellij.vcs.log.impl.LogDataImpl
+import com.intellij.vcs.log.impl.VcsActivityKey
+import com.intellij.vcs.log.impl.VcsIndexableLogProvider
+import com.intellij.vcs.log.impl.VcsLogIndexer
 import com.intellij.vcs.log.util.UserNameRegex
 import com.intellij.vcs.log.util.VcsUserUtil
 import com.intellij.vcs.log.visible.filters.hasLowerBound
@@ -48,7 +76,11 @@ import git4idea.repo.GitRepository
 import git4idea.repo.GitRepositoryChangeListener
 import git4idea.repo.GitRepositoryManager
 import git4idea.repo.asSubmodule
-import git4idea.telemetry.GitBackendTelemetrySpan.LogProvider.*
+import git4idea.telemetry.GitBackendTelemetrySpan.LogProvider.LoadingCommitsOnTaggedBranch
+import git4idea.telemetry.GitBackendTelemetrySpan.LogProvider.ReadingBranches
+import git4idea.telemetry.GitBackendTelemetrySpan.LogProvider.ReadingTags
+import git4idea.telemetry.GitBackendTelemetrySpan.LogProvider.SortingCommits
+import git4idea.telemetry.GitBackendTelemetrySpan.LogProvider.ValidatingData
 import it.unimi.dsi.fastutil.objects.ObjectOpenCustomHashSet
 import org.jetbrains.annotations.CalledInAny
 import kotlin.math.min
@@ -56,12 +88,24 @@ import kotlin.math.min
 class GitLogProvider(private val project: Project) : VcsLogProvider, VcsIndexableLogProvider {
   private val repositoryManager: GitRepositoryManager = GitRepositoryManager.getInstance(project)
   private val refSorter: VcsLogRefManager = GitRefManager(project, repositoryManager)
-  private val vcsObjectsFactory: VcsLogObjectsFactory = project.getService(VcsLogObjectsFactory::class.java)
   private val tracer = TelemetryManager.getInstance().getTracer(VcsScope)
+
+  override suspend fun readRecentCommits(
+    root: VirtualFile,
+    requirements: VcsLogProvider.Requirements,
+    refsLoadingPolicy: VcsLogProvider.RefsLoadingPolicy,
+  ): VcsLogProvider.DetailedLogData {
+    return if (GitLogExperimentalProvider.isEnabled) {
+      project.serviceAsync<GitLogExperimentalProvider>().readRecentCommits(root, requirements, refsLoadingPolicy)
+    }
+    else {
+      super.readRecentCommits(root, requirements, refsLoadingPolicy)
+    }
+  }
 
   @Throws(VcsException::class)
   override fun readFirstBlock(root: VirtualFile, requirements: VcsLogProvider.Requirements): VcsLogProvider.DetailedLogData {
-    val repository = getRepository(root) ?: return LogDataImpl.empty()
+    val repository = repositoryManager.getRepositoryUnlessFresh(root) ?: return LogDataImpl.empty()
 
     // need to query more to sort them manually; this doesn't affect performance: it is equal for -1000 and -2000
     val commitCount = requirements.commitCount * 2
@@ -85,7 +129,12 @@ class GitLogProvider(private val project: Project) : VcsLogProvider, VcsIndexabl
     var branches: Set<VcsRef> = emptySet()
 
     if (isRefreshRefs) {
-      branches = readBranches(repository)
+      val vcsObjectsFactory = project.service<VcsLogObjectsFactory>()
+      branches = TelemetryManager.getInstance().getTracer(VcsScope).spanBuilder(ReadingBranches.name)
+        .setAttribute("rootName", repository.root.name).use {
+          repository.update()
+          vcsObjectsFactory.createBranchesRefs(repository)
+        }
       addNewElements(allRefs, branches)
     }
 
@@ -155,7 +204,7 @@ class GitLogProvider(private val project: Project) : VcsLogProvider, VcsIndexabl
 
   @Throws(VcsException::class)
   override fun readAllHashes(root: VirtualFile, commitConsumer: Consumer<in TimedVcsCommit>): VcsLogProvider.LogData {
-    if (getRepository(root) == null) {
+    if (repositoryManager.getRepositoryUnlessFresh<GitRepository>(root) == null) {
       return LogDataImpl.empty()
     }
 
@@ -179,7 +228,7 @@ class GitLogProvider(private val project: Project) : VcsLogProvider, VcsIndexabl
     hashes: List<String>,
     commitConsumer: Consumer<in VcsFullCommitDetails>,
   ) {
-    val repository = getRepository(root) ?: return
+    val repository = repositoryManager.getRepositoryUnlessFresh(root) ?: return
 
     val requirements = GitCommitRequirements(
       shouldIncludeRootChanges(repository),
@@ -192,32 +241,6 @@ class GitLogProvider(private val project: Project) : VcsLogProvider, VcsIndexabl
   @Throws(VcsException::class)
   override fun readMetadata(root: VirtualFile, hashes: List<String>, consumer: Consumer<in VcsCommitMetadata>) {
     GitLogUtil.collectMetadata(project, root, hashes, consumer::consume)
-  }
-
-  private fun readBranches(repository: GitRepository): Set<VcsRef> {
-    return tracer.spanBuilder(ReadingBranches.name).setAttribute("rootName", repository.root.name).use {
-      val root = repository.root
-      repository.update()
-      val branches = repository.branches
-      val localBranches = branches.localBranches
-      val remoteBranches = branches.remoteBranches
-      val refs = HashSet<VcsRef>(localBranches.size + remoteBranches.size)
-      for (localBranch in localBranches) {
-        val hash = branches.getHash(localBranch)
-        checkNotNull(hash)
-        refs.add(vcsObjectsFactory.createRef(hash, localBranch.name, GitRefManager.LOCAL_BRANCH, root))
-      }
-      for (remoteBranch in remoteBranches) {
-        val hash = branches.getHash(remoteBranch)
-        checkNotNull(hash)
-        refs.add(vcsObjectsFactory.createRef(hash, remoteBranch.nameForLocalOperations, GitRefManager.REMOTE_BRANCH, root))
-      }
-      val currentRevision = repository.currentRevision
-      if (currentRevision != null) { // null => fresh repository
-        refs.add(vcsObjectsFactory.createRef(HashImpl.build(currentRevision), GitUtil.HEAD, GitRefManager.HEAD, root))
-      }
-      refs
-    }
   }
 
   override val supportedVcs: VcsKey
@@ -366,10 +389,6 @@ class GitLogProvider(private val project: Project) : VcsLogProvider, VcsIndexabl
     }
   }
 
-  private fun getRepository(root: VirtualFile): GitRepository? {
-    return getRepository(repositoryManager, root)
-  }
-
   companion object {
     private val LOG = logger<GitLogProvider>()
 
@@ -388,19 +407,6 @@ class GitLogProvider(private val project: Project) : VcsLogProvider, VcsIndexabl
 
     internal fun shouldIncludeRootChanges(repository: GitRepository): Boolean {
       return !repository.info.isShallow
-    }
-
-    internal fun getRepository(manager: GitRepositoryManager, root: VirtualFile): GitRepository? {
-      val repository = manager.getRepositoryForRoot(root)
-      if (repository == null) {
-        LOG.warn("Repository not found for root $root")
-        return null
-      }
-      else if (repository.isFresh) {
-        LOG.info("Fresh repository: $root")
-        return null
-      }
-      return repository
     }
 
     internal fun getCorrectedVcsRoot(
@@ -427,7 +433,7 @@ class GitLogProvider(private val project: Project) : VcsLogProvider, VcsIndexabl
       options: PermanentGraph.Options,
       maxCount: Int,
     ): GitLogCommandParameters? {
-      val repository = getRepository(GitRepositoryManager.getInstance(project), root) ?: return null
+      val repository = GitRepositoryManager.getInstance(project).getRepositoryUnlessFresh(root) ?: return null
 
       val configParameters = ArrayList<String>()
 
@@ -624,9 +630,9 @@ class GitLogProvider(private val project: Project) : VcsLogProvider, VcsIndexabl
     private fun addOldStillExistingTags(
       allRefs: MutableSet<in VcsRef>,
       currentTags: Set<String>,
-      previousRefs: Collection<VcsRef>,
+      previousRefs: VcsRefsContainer,
     ) {
-      for (ref in previousRefs) {
+      for (ref in previousRefs.allRefs()) {
         if (!allRefs.contains(ref) && currentTags.contains(ref.name)) {
           allRefs.add(ref)
         }
@@ -652,5 +658,8 @@ class GitLogProvider(private val project: Project) : VcsLogProvider, VcsIndexabl
     private fun Collection<VcsRef>.getTagNames(): Set<String> = mapNotNullTo(mutableSetOf()) { ref: VcsRef ->
       if (ref.type == GitRefManager.TAG) ref.name else null
     }
+
+    private fun VcsRefsContainer.getTagNames(): Set<String> =
+      tags().mapTo(mutableSetOf()) { ref: VcsRef -> ref.name }
   }
 }

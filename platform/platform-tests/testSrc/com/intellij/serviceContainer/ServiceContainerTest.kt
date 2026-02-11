@@ -5,9 +5,14 @@ package com.intellij.serviceContainer
 
 import com.intellij.concurrency.currentThreadContext
 import com.intellij.diagnostic.PluginException
+import com.intellij.ide.plugins.TestIdeaPluginDescriptor
 import com.intellij.openapi.components.ComponentManager
+import com.intellij.openapi.components.ServiceDescriptor
+import com.intellij.openapi.components.ServiceDescriptor.PreloadMode
 import com.intellij.openapi.extensions.DefaultPluginDescriptor
+import com.intellij.openapi.extensions.PluginId
 import com.intellij.openapi.util.Disposer
+import com.intellij.openapi.util.NlsSafe
 import com.intellij.testFramework.LoggedErrorProcessor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.runBlocking
@@ -22,6 +27,9 @@ import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.test.assertContains
+import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
+import kotlin.test.assertNotSame
 
 private val testPluginDescriptor: DefaultPluginDescriptor = DefaultPluginDescriptor("test")
 
@@ -245,8 +253,10 @@ class ServiceContainerTest {
 
   @Test
   fun `additional context has priority - load`() {
-    val componentManager = TestComponentManager(parentScope = CoroutineScope(ContextElement(MARKER_0)), additionalContext = ContextElement(MARKER_1))
-    val componentManager2 = TestComponentManager(parentScope = CoroutineScope(ContextElement(MARKER_0)), additionalContext = ContextElement(MARKER_2))
+    val componentManager =
+      TestComponentManager(parentScope = CoroutineScope(ContextElement(MARKER_0)), additionalContext = ContextElement(MARKER_1))
+    val componentManager2 =
+      TestComponentManager(parentScope = CoroutineScope(ContextElement(MARKER_0)), additionalContext = ContextElement(MARKER_2))
     componentManager.registerService(T1::class.java, T1::class.java, testPluginDescriptor, false)
     componentManager2.registerService(T2::class.java, T2::class.java, testPluginDescriptor, false)
     publishComponentManager2(componentManager2) {
@@ -256,8 +266,10 @@ class ServiceContainerTest {
 
   @Test
   fun `additional context has priority - preload`() {
-    val componentManager = TestComponentManager(parentScope = CoroutineScope(ContextElement(MARKER_0)), additionalContext = ContextElement(MARKER_1))
-    val componentManager2 = TestComponentManager(parentScope = CoroutineScope(ContextElement(MARKER_0)), additionalContext = ContextElement(MARKER_2))
+    val componentManager =
+      TestComponentManager(parentScope = CoroutineScope(ContextElement(MARKER_0)), additionalContext = ContextElement(MARKER_1))
+    val componentManager2 =
+      TestComponentManager(parentScope = CoroutineScope(ContextElement(MARKER_0)), additionalContext = ContextElement(MARKER_2))
     componentManager.registerService(T1::class.java, T1::class.java, testPluginDescriptor, false)
     componentManager2.registerService(T2::class.java, T2::class.java, testPluginDescriptor, false)
     publishComponentManager2(componentManager2) {
@@ -322,6 +334,89 @@ class ServiceContainerTest {
     assertNotNull(service)
   }
 
+  @Test
+  fun `error message includes class name for unsupported constructor`() {
+    val componentManager = TestComponentManager()
+    componentManager.registerService(
+      ServiceWithUnsupportedConstructor::class.java,
+      ServiceWithUnsupportedConstructor::class.java,
+      testPluginDescriptor,
+      false
+    )
+    val error = LoggedErrorProcessor.executeAndReturnLoggedError {
+      try {
+        componentManager.getService(ServiceWithUnsupportedConstructor::class.java)
+        throw AssertionError("Expected exception")
+      }
+      catch (_: PluginException) {
+        // expected
+      }
+    }
+    assertNotNull(error)
+    assertThat(error.message).contains("ServiceWithUnsupportedConstructor")
+  }
+
+  @Test
+  fun `test dynamically overridden service forwards calls`() {
+    val componentManager = TestComponentManager()
+    componentManager.useProxiesForOpenServices = true
+
+    val pluginDescriptor1 = IdeaPluginDescriptorForServiceRegistration("testPlugin1")
+    val pluginDescriptor2 = IdeaPluginDescriptorForServiceRegistration("testPlugin2")
+    componentManager.registerService(serviceDescriptor(IfcService::class.java, IfcServiceImpl1::class.java, open = true), pluginDescriptor1)
+    val ref1 = componentManager.getService(IfcService::class.java)!!
+    assertEquals("IfcServiceImpl1", ref1.greet())
+    assertNotEquals(IfcServiceImpl1::class.java.name,
+                    ref1.javaClass.name,
+                    "Should be a proxy class, not the service itself (because the service is open).")
+
+    componentManager.registerService(serviceDescriptor(IfcService::class.java, IfcServiceImpl2::class.java, overrides = true),
+                                     pluginDescriptor2)
+    val ref2 = componentManager.getService(IfcService::class.java)!!
+    assertNotSame(ref1, ref2)
+    assertEquals(IfcServiceImpl2::class.java.name,
+                 ref2.javaClass.name,
+                 "Should be the service itself, not a proxy class (because the service is not open).")
+    assertEquals("IfcServiceImpl2", ref2.greet())
+    assertEquals("IfcServiceImpl2", ref1.greet(), "Old reference should redirect calls to new instance")
+  }
+
+  @Test
+  fun `test not allowlisted services are not proxied`() {
+    val componentManager = TestComponentManager()
+    componentManager.useProxiesForOpenServices = true
+
+    val pluginDescriptor1 = IdeaPluginDescriptorForServiceRegistration("testPlugin1")
+    componentManager.registerService(serviceDescriptor(IfcServiceNotAllowed::class.java, IfcServiceNotAllowedImpl::class.java, open = true),
+                                     pluginDescriptor1)
+    val ref1 = componentManager.getService(IfcServiceNotAllowed::class.java)!!
+    assertEquals(IfcServiceNotAllowedImpl::class.java.name,
+                 ref1.javaClass.name,
+                 "Should be the service class, not a proxy class (because the service interface is not in the `proxied-services.list`).")
+  }
+
+  private class IdeaPluginDescriptorForServiceRegistration(
+    val pluginId: String,
+    private val bundled: Boolean = false,
+  ) : TestIdeaPluginDescriptor() {
+    override fun getPluginId(): PluginId = PluginId(pluginId)
+    override fun getName(): @NlsSafe String = pluginId
+    override fun getDescriptorPath(): String? = null
+    override fun getPluginClassLoader(): ClassLoader? = null
+    override fun isBundled(): Boolean = bundled
+  }
+
+  private fun serviceDescriptor(
+    serviceIfc: Class<*>,
+    serviceImpl: Class<*>,
+    overrides: Boolean = false,
+    open: Boolean = false,
+  ): ServiceDescriptor {
+    return ServiceDescriptor(serviceIfc.name, serviceImpl.name,
+                             null, null, overrides, open, null,
+                             PreloadMode.FALSE, null, null)
+  }
+
   private fun publishComponentManager1(componentManager: ComponentManager, action: () -> Unit): Unit {
     componentManagerHolder1.set(componentManager)
     try {
@@ -345,6 +440,26 @@ class ServiceContainerTest {
 }
 
 private class SimpleService
+
+internal interface IfcService {
+  fun greet(): String
+}
+
+internal interface IfcServiceNotAllowed {
+  fun greet(): String
+}
+
+private class IfcServiceNotAllowedImpl : IfcServiceNotAllowed {
+  override fun greet(): String = "IfcServiceNotAllowedImpl"
+}
+
+private class IfcServiceImpl1 : IfcService {
+  override fun greet(): String = "IfcServiceImpl1"
+}
+
+private class IfcServiceImpl2 : IfcService {
+  override fun greet(): String = "IfcServiceImpl2"
+}
 
 private class C1(componentManager: ComponentManager) {
   init {
@@ -413,6 +528,8 @@ private class ContextElement(val marker: String) : AbstractCoroutineContextEleme
   }
 
 }
+
+private class ServiceWithUnsupportedConstructor(@Suppress("UNUSED_PARAMETER") unusedParam: String)
 
 private const val MARKER_0 = "marker 0"
 private const val MARKER_1 = "marker 1"

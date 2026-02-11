@@ -2,16 +2,20 @@
 package git4idea.workingTrees
 
 import com.intellij.dvcs.repo.repositoryId
-import com.intellij.ide.impl.OpenProjectTask
+import com.intellij.ide.impl.ProjectUtil
 import com.intellij.ide.util.PropertiesComponent
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
+import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.NlsContexts
 import com.intellij.openapi.util.NlsSafe
-import com.intellij.platform.PlatformProjectOpenProcessor
+import com.intellij.openapi.vcs.changes.ui.ChangesViewContentManagerListener
+import com.intellij.platform.ide.CoreUiCoroutineScopeHolder
 import com.intellij.platform.ide.progress.withBackgroundProgress
 import com.intellij.vcs.git.repo.GitRepositoriesHolder
 import com.intellij.vcs.git.repo.GitRepositoryModel
+import com.intellij.vcs.git.workingTrees.GitWorkingTreesUtil
 import git4idea.GitRemoteBranch
 import git4idea.GitWorkingTree
 import git4idea.actions.workingTree.GitWorkingTreeDialogData
@@ -26,6 +30,21 @@ import kotlin.io.path.Path
 
 @Service(Service.Level.PROJECT)
 internal class GitWorkingTreesService(private val project: Project, val coroutineScope: CoroutineScope) {
+
+  init {
+    if (!ApplicationManager.getApplication().isUnitTestMode && !ApplicationManager.getApplication().isHeadlessEnvironment) {
+      coroutineScope.launch {
+        GitRepositoriesHolder.getInstance(project).updates.collect { updateType ->
+          if (updateType == GitRepositoriesHolder.UpdateType.WORKING_TREES_LOADED ||
+              updateType == GitRepositoriesHolder.UpdateType.RELOAD_STATE) {
+            ApplicationManager.getApplication().invokeLater {
+              project.messageBus.syncPublisher(ChangesViewContentManagerListener.TOPIC).toolWindowMappingChanged()
+            }
+          }
+        }
+      }
+    }
+  }
 
   companion object {
     private const val WORKING_TREE_TAB_STATUS_PROPERTY: String = "Git.Working.Tree.Tab.closed.by.user"
@@ -99,9 +118,9 @@ internal class GitWorkingTreesService(private val project: Project, val coroutin
     }
   }
 
-  fun openWorkingTreeProject(tree: GitWorkingTree, cs: CoroutineScope) {
-    cs.launch(Dispatchers.Default) {
-      PlatformProjectOpenProcessor.getInstance().openProjectAndFile(Path(tree.path.path), false, OpenProjectTask.build())
+  fun openWorkingTreeProject(tree: GitWorkingTree) {
+    service<CoreUiCoroutineScopeHolder>().coroutineScope.launch(Dispatchers.Default) {
+      ProjectUtil.openOrImportAsync(Path(tree.path.path))
     }
   }
 }

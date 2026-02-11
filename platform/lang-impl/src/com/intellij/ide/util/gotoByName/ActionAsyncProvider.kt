@@ -4,13 +4,21 @@ package com.intellij.ide.util.gotoByName
 import com.intellij.ide.SearchTopHitProvider
 import com.intellij.ide.actions.ApplyIntentionAction
 import com.intellij.ide.ui.OptionsSearchTopHitProvider
+import com.intellij.ide.ui.OptionsTopHitProvider
 import com.intellij.ide.ui.OptionsTopHitProvider.ProjectLevelProvidersAdapter
 import com.intellij.ide.ui.search.ActionFromOptionDescriptorProvider
 import com.intellij.ide.ui.search.OptionDescription
 import com.intellij.ide.ui.search.SearchableOptionsRegistrar
 import com.intellij.ide.ui.search.SearchableOptionsRegistrarImpl
-import com.intellij.ide.util.gotoByName.GotoActionModel.*
-import com.intellij.openapi.actionSystem.*
+import com.intellij.ide.util.gotoByName.GotoActionModel.ActionWrapper
+import com.intellij.ide.util.gotoByName.GotoActionModel.MatchedValue
+import com.intellij.ide.util.gotoByName.GotoActionModel.MatchedValueType
+import com.intellij.openapi.actionSystem.AbbreviationManager
+import com.intellij.openapi.actionSystem.ActionGroup
+import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.ActionStubBase
+import com.intellij.openapi.actionSystem.AnAction
+import com.intellij.openapi.actionSystem.Presentation
 import com.intellij.openapi.actionSystem.impl.ActionManagerImpl
 import com.intellij.openapi.application.readAction
 import com.intellij.openapi.components.serviceAsync
@@ -29,12 +37,28 @@ import com.intellij.ui.switcher.QuickActionProvider
 import com.intellij.util.CollectConsumer
 import com.intellij.util.gotoByName.FindActionSearchableOptionsFilter
 import com.intellij.util.text.matching.MatchingMode
-import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.*
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.Runnable
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ReceiveChannel
+import kotlinx.coroutines.channels.SendChannel
+import kotlinx.coroutines.channels.produce
+import kotlinx.coroutines.channels.toList
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.withIndex
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.jetbrains.annotations.ApiStatus
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.PriorityBlockingQueue
@@ -150,7 +174,15 @@ class ActionAsyncProvider(private val model: GotoActionModel) {
 
     val list = try {
       collectMatchedActions(pattern, allIds, weightMatcher, unmatchedIdsChannel)
-    } finally {
+    }
+    catch (e: Throwable) {
+      val t = Throwable(e)
+      if (LOG.isDebugEnabled && pattern == "Collect Host and Client Logs") {
+        LOG.warn("[$pattern] TEST DIAGNOSTICS: exception during collectMatchedActions: ${t.message}", t)
+      }
+      throw e
+    }
+    finally {
       unmatchedIdsChannel.close()
     }
 
@@ -247,18 +279,44 @@ class ActionAsyncProvider(private val model: GotoActionModel) {
 
       return@mapNotNull action
     }
+
+    if (LOG.isDebugEnabled) {
+      LOG.debug { "[$pattern] TEST DIAGNOSTICS: allIds contains \"CollectZippedLogs\": ${allIds.contains("CollectZippedLogs")}" }
+    }
+
     val extendedActions: Sequence<AnAction> = model.dataContext.getData(QuickActionProvider.KEY)?.getActions(true)?.asSequence() ?: emptySequence<AnAction>()
     val allActions: Sequence<AnAction> = mainActions + extendedActions + extendedActions.flatMap { (it as? ActionGroup)?.let { model.updateSession.children(it) } ?: emptyList() }
     val matchedActions = produce(capacity = Channel.UNLIMITED) {
+      val startAllTime = System.currentTimeMillis()
+
       allActions.forEach { action ->
+        val isCollectLogsAction = LOG.isDebugEnabled && action::class.java.simpleName.let {
+          it == "ClientCollectZippedLogsWithRemoteAction" || it == "CWMBackendCollectZippedLogsWithRemoteAction"
+        }
+
+        if (isCollectLogsAction) {
+           LOG.debug { "[$pattern] TEST DIAGNOSTICS: allActions contains Collect Logs action: ${action::class.java.simpleName}" }
+        }
+
         launch {
           runCatching {
+            val startOneTime = System.currentTimeMillis()
             val mode = model.actionMatches(pattern, matcher, action)
+            val endTime = System.currentTimeMillis()
+
             if (mode != MatchMode.NONE) {
+              if (isCollectLogsAction) {
+                LOG.debug("[$pattern] TEST DIAGNOSTICS: Collect Logs action matched")
+              }
+
               val weight = calcElementWeight(action, pattern, weightMatcher)
               send(MatchedAction(action, mode, weight))
             }
             else {
+              if (isCollectLogsAction) {
+                LOG.debug("[$pattern] TEST DIAGNOSTICS: Collect Logs action unmatched")
+              }
+
               if (action is ActionStubBase) actionManager.getId(action)?.let { unmatchedIdsChannel.send(it) }
             }
           }.onFailure { t ->
@@ -267,6 +325,9 @@ class ActionAsyncProvider(private val model: GotoActionModel) {
         }
       }
     }.toList()
+
+
+    LOG.debug { "[$pattern] TEST DIAGNOSTICS: matchedActions list is ready (${matchedActions.size})" }
 
     val comparator = Comparator.comparing<MatchedAction, Int> { it.weight ?: 0 }.reversed()
     return@coroutineScope matchedActions.sortedWith(comparator)
@@ -331,7 +392,7 @@ class ActionAsyncProvider(private val model: GotoActionModel) {
 
     for (provider in SearchTopHitProvider.EP_NAME.extensionList) {
       @Suppress("DEPRECATION")
-      if (provider is com.intellij.ide.ui.OptionsTopHitProvider.CoveredByToggleActions) {
+      if (provider is OptionsTopHitProvider.CoveredByToggleActions) {
         continue
       }
 

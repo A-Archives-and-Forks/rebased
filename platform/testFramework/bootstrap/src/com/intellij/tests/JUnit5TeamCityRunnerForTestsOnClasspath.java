@@ -62,10 +62,12 @@ public final class JUnit5TeamCityRunnerForTestsOnClasspath {
       // PostDiscoveryFilter runs on already discovered classes and methods (TestDescriptors), so we could run more complex checks,
       // like determining whether it belongs to the current bucket.
       PostDiscoveryFilter postDiscoveryFilter;
+      PostDiscoveryFilter performancePostDiscoveryFilter;
       Set<Path> classPathRoots;
       try {
         nameFilter = createClassNameFilter(classLoader);
         postDiscoveryFilter = createPostDiscoveryFilter(classLoader);
+        performancePostDiscoveryFilter = new JUnit5TeamCityRunnerForTestAllSuite.PerformancePostDiscoveryFilter();
         classPathRoots = getClassPathRoots(classLoader);
       }
       catch (Throwable e) {
@@ -85,7 +87,7 @@ public final class JUnit5TeamCityRunnerForTestsOnClasspath {
       LauncherDiscoveryRequest discoveryRequest = LauncherDiscoveryRequestBuilder.request()
         .configurationParameter("junit.jupiter.extensions.autodetection.enabled", "true")
         .selectors(selectors)
-        .filters(nameFilter, postDiscoveryFilter, EngineFilter.excludeEngines(VintageTestDescriptor.ENGINE_ID)).build();
+        .filters(nameFilter, postDiscoveryFilter, performancePostDiscoveryFilter, EngineFilter.excludeEngines(VintageTestDescriptor.ENGINE_ID)).build();
       TestPlan testPlan = launcher.discover(discoveryRequest);
       if (testPlan.containsTests()) {
         if (ourCollectTestsFile != null) {
@@ -101,10 +103,9 @@ public final class JUnit5TeamCityRunnerForTestsOnClasspath {
     }
     catch (Throwable e) {
       caughtException = e;
-      assertNoUnhandledExceptions("JUnit5TeamCityRunnerForTestsOnClasspath", e);
     }
     finally {
-      assertNoUnhandledExceptions("JUnit5TeamCityRunnerForTestsOnClasspath", null);
+      assertNoUnhandledExceptions("JUnit5TeamCityRunnerForTestsOnClasspath", caughtException);
     }
 
     // Determine exit code OUTSIDE of try/catch/finally to avoid finally overriding the exit code
@@ -177,23 +178,23 @@ public final class JUnit5TeamCityRunnerForTestsOnClasspath {
     throws NoSuchMethodException, ClassNotFoundException, IllegalAccessException {
     MethodHandle included = MethodHandles.publicLookup()
       .findStatic(Class.forName("com.intellij.TestCaseLoader", true, classLoader),
-                  "isClassIncluded", MethodType.methodType(boolean.class, String.class));
+                  "isClassIncluded", MethodType.methodType(boolean.class, Class.class));
     return new PostDiscoveryFilter() {
       record LastCheckResult(String className, FilterResult result) {
       }
 
       private LastCheckResult myLastResult = null;
 
-      private FilterResult isIncluded(String className) {
-        if (myLastResult == null || !myLastResult.className.equals(className)) {
-          myLastResult = new LastCheckResult(className, isIncludedImpl(className));
+      private FilterResult isIncluded(Class<?> aClass) {
+        if (myLastResult == null || !myLastResult.className.equals(aClass.getName())) {
+          myLastResult = new LastCheckResult(aClass.getName(), isIncludedImpl(aClass));
         }
         return myLastResult.result;
       }
 
-      private FilterResult isIncludedImpl(String className) {
+      private FilterResult isIncludedImpl(Class<?> aClass) {
         try {
-          if ((boolean)included.invokeExact(className)) {
+          if ((boolean)included.invokeExact(aClass)) {
             return FilterResult.included(null);
           }
           return FilterResult.excluded(null);
@@ -213,10 +214,10 @@ public final class JUnit5TeamCityRunnerForTestsOnClasspath {
           return FilterResult.included("No source for descriptor");
         }
         if (source instanceof MethodSource methodSource) {
-          return isIncluded(methodSource.getClassName());
+          return isIncluded(methodSource.getJavaClass());
         }
         if (source instanceof ClassSource classSource) {
-          return isIncluded(classSource.getClassName());
+          return isIncluded(classSource.getJavaClass());
         }
         return FilterResult.included("Unknown source type " + source.getClass());
       }

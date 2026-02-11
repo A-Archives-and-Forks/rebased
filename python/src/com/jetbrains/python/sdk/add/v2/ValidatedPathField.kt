@@ -7,7 +7,7 @@ import com.intellij.execution.target.getTargetType
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CustomShortcutSet
-import com.intellij.openapi.application.UI
+import com.intellij.openapi.application.EDT
 import com.intellij.openapi.fileChooser.FileChooserDescriptor
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.observable.properties.ObservableMutableProperty
@@ -49,8 +49,17 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.jetbrains.annotations.Nls
-import java.awt.event.*
-import javax.swing.*
+import java.awt.event.ActionListener
+import java.awt.event.FocusAdapter
+import java.awt.event.FocusEvent
+import java.awt.event.KeyEvent
+import java.awt.event.MouseAdapter
+import java.awt.event.MouseEvent
+import javax.swing.Icon
+import javax.swing.JPanel
+import javax.swing.JRootPane
+import javax.swing.JTextField
+import javax.swing.KeyStroke
 import javax.swing.event.DocumentEvent
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
@@ -211,7 +220,7 @@ internal class ValidatedPathField<T, P : PathHolder, VP : ValidatedPath<T, P>>(
     }
 
 
-    scope.launch(Dispatchers.UI) {
+    scope.launch(Dispatchers.EDT) {
       textInputFlow
         .debounce(50) // setText method is a combination of two calls - remove + insert, should count them as 1
         .map {

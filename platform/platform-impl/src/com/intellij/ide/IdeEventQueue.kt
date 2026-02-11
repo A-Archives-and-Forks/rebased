@@ -18,6 +18,7 @@ import com.intellij.ide.ui.normalize
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.*
 import com.intellij.openapi.application.ex.ApplicationManagerEx
+import com.intellij.openapi.application.impl.InternalThreading
 import com.intellij.openapi.application.impl.InvocationUtil
 import com.intellij.openapi.application.impl.LaterInvocator
 import com.intellij.openapi.components.serviceIfCreated
@@ -25,6 +26,7 @@ import com.intellij.openapi.diagnostic.ControlFlowException
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.diagnostic.debug
 import com.intellij.openapi.diagnostic.logger
+import com.intellij.openapi.editor.impl.ad.isRhizomeAdRebornEnabled
 import com.intellij.openapi.editor.impl.ad.util.ThreadLocalRhizomeDB
 import com.intellij.openapi.extensions.ExtensionPointName
 import com.intellij.openapi.keymap.impl.IdeKeyEventDispatcher
@@ -148,9 +150,7 @@ class IdeEventQueue private constructor() : EventQueue() {
     assert(isDispatchThread()) { Thread.currentThread() }
     val systemEventQueue = Toolkit.getDefaultToolkit().systemEventQueue
     assert(systemEventQueue !is IdeEventQueue) { systemEventQueue }
-    if (useNonBlockingFlushQueue) {
-      LaterInvocator.initializeNonBlockingFlushQueue(threadingSupport)
-    }
+    LaterInvocator.initializeNonBlockingFlushQueue(threadingSupport)
     systemEventQueue.push(this)
     EDT.updateEdt()
     replaceDefaultKeyboardFocusManager()
@@ -335,8 +335,8 @@ class IdeEventQueue private constructor() : EventQueue() {
           val progressManager = ProgressManager.getInstanceOrNull()
           try {
             runCustomProcessors(finalEvent, preProcessors)
-            performActivity(finalEvent, !nakedRunnable && isPureSwingEventWilEnabled) {
-              if (progressManager == null || (runnable != null && useNonBlockingFlushQueue && InvocationUtil.isFlushNow(runnable))) {
+            performActivity(finalEvent) {
+              if (progressManager == null || (runnable != null && InvocationUtil.isFlushNow(runnable))) {
                 _dispatchEvent(finalEvent)
               }
               else {
@@ -486,7 +486,7 @@ class IdeEventQueue private constructor() : EventQueue() {
     if (isUserActivityEvent(e)) {
       ActivityTracker.getInstance().inc()
     }
-    if (popupManager.isPopupActive && !shouldSkipListeners(e) && threadingSupport.runWriteIntentReadAction { popupManager.dispatch(e) }) {
+    if (popupManager.isPopupActive && !shouldSkipListeners(e) && popupManager.dispatch(e)) {
       if (keyEventDispatcher.isWaitingForSecondKeyStroke) {
         keyEventDispatcher.state = KeyState.STATE_INIT
       }
@@ -541,7 +541,7 @@ class IdeEventQueue private constructor() : EventQueue() {
 
   // todo: remove when listeners would not acquire WI
   private fun shouldSkipListeners(e: AWTEvent): Boolean {
-    return e is InvocationEvent && e.toString().contains(ThreadingSupport.RunnableWithTransferredWriteAction.NAME)
+    return e is InternalThreading.TransferredWriteActionEvent
   }
 
   private fun isUserActivityEvent(e: AWTEvent): Boolean =
@@ -1054,7 +1054,7 @@ private fun isInputEvent(e: AWTEvent): Boolean {
   return e is InputEvent || e is InputMethodEvent || e is WindowEvent || e is ActionEvent
 }
 
-internal fun performActivity(e: AWTEvent, needWIL: Boolean, runnable: () -> Unit) {
+internal fun performActivity(e: AWTEvent, runnable: () -> Unit) {
   var transactionGuard = transactionGuard
   if (transactionGuard == null && appIsLoaded()) {
     val app = ApplicationManager.getApplication()
@@ -1070,18 +1070,7 @@ internal fun performActivity(e: AWTEvent, needWIL: Boolean, runnable: () -> Unit
     runnable()
   }
   else {
-    val runnableWithWIL =
-      if (needWIL) {
-        {
-          WriteIntentReadAction.run {
-            runnable()
-          }
-        }
-      }
-      else {
-        runnable
-      }
-    transactionGuard.performActivity(isInputEvent(e) || e is ItemEvent || e is FocusEvent, runnableWithWIL)
+    transactionGuard.performActivity(isInputEvent(e) || e is ItemEvent || e is FocusEvent, runnable)
   }
 }
 
@@ -1330,7 +1319,7 @@ private fun abracadabraDaberBoreh(eventQueue: IdeEventQueue) {
 }
 
 private fun setImplicitThreadLocalRhizomeIfEnabled() {
-  if (isRhizomeAdEnabled) {
+  if (isRhizomeAdRebornEnabled) {
     // It is a workaround on tricky `updateDbInTheEventDispatchThread()` where
     // the thread local DB is reset by `fleet.kernel.DbSource.ContextElement.restoreThreadContext`
     try {

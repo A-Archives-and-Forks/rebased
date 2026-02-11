@@ -1,6 +1,7 @@
 // Copyright 2000-2025 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package com.intellij.ide.gdpr;
 
+import com.intellij.diagnostic.ExceptionAutoReportUtil;
 import com.intellij.diagnostic.LoadingState;
 import com.intellij.idea.AppMode;
 import com.intellij.l10n.LocalizationUtil;
@@ -38,6 +39,7 @@ public final class ConsentOptions implements ModificationTracker {
   private static final String TRACE_DATA_COLLECTION_NON_COM_OPTION_ID = "ai.trace.data.collection.and.use.noncom.policy";
   private static final String TRACE_DATA_COLLECTION_COM_OPTION_ID = "ai.trace.data.collection.and.use.com.policy";
   private static final String TRACE_DATA_COLLECTION_OPTION_ID = "ai.trace.data.collection.and.use.policy";
+  private static final String EA_AUTO_REPORT_OPTION_ID = "ea.auto.report";
   private static final Set<String> PER_PRODUCT_CONSENTS = Set.of(EAP_FEEDBACK_OPTION_ID);
 
   private final BooleanSupplier myIsEap;
@@ -230,6 +232,10 @@ public final class ConsentOptions implements ModificationTracker {
     return consent -> TRACE_DATA_COLLECTION_OPTION_ID.equals(consent.getId());
   }
 
+  public static @NotNull Predicate<Consent> condEAAutoReportConsent() {
+    return consent -> EA_AUTO_REPORT_OPTION_ID.equals(consent.getId());
+  }
+
   /**
    * Warning: For JetBrains products this setting is relevant for release builds only.
    * Statistics sending for JetBrains EAP builds is managed by a separate flag.
@@ -253,6 +259,10 @@ public final class ConsentOptions implements ModificationTracker {
   @TestOnly
   public void setAiDataCollectionPermission(boolean permitted) {
     setPermission(AI_DATA_COLLECTION_OPTION_ID, permitted);
+  }
+
+  public void setEAAutoReportAllowed(boolean permitted) {
+    setPermission(EA_AUTO_REPORT_OPTION_ID, permitted);
   }
 
   private Permission getPermission(String consentId) {
@@ -339,6 +349,10 @@ public final class ConsentOptions implements ModificationTracker {
       allDefaults.remove(lookupConsentID(EAP_FEEDBACK_OPTION_ID));
     }
 
+    if (!ExceptionAutoReportUtil.isAutoReportVisible()) {
+      allDefaults.remove(lookupConsentID(EA_AUTO_REPORT_OPTION_ID));
+    }
+
     for (var it = allDefaults.entrySet().iterator(); it.hasNext(); ) {
       var entry = it.next();
       var consent = entry.getValue().get(getDefaultLocale());
@@ -388,6 +402,8 @@ public final class ConsentOptions implements ModificationTracker {
   private @Nullable Consent getDefaultConsent(String consentId) {
     var defaultConsents = loadDefaultConsents();
     var consentMap = defaultConsents.get(consentId);
+    if (consentMap == null) return null;
+
     var defaultConsent = consentMap.get(getDefaultLocale());
     if (defaultConsent == null) return null;
     var localizedConsent = consentMap.get(getCurrentLocale());

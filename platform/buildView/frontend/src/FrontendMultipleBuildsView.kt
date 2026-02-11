@@ -1,19 +1,33 @@
 // Copyright 2000-2025 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package com.intellij.platform.buildView.frontend
 
-import com.intellij.build.*
+import com.intellij.build.BuildContent
+import com.intellij.build.BuildContentId
+import com.intellij.build.BuildContentManager
+import com.intellij.build.BuildContentManagerImpl
+import com.intellij.build.BuildDescriptor
+import com.intellij.build.BuildId
+import com.intellij.build.BuildViewEvent
 import com.intellij.build.events.BuildEventsNls
 import com.intellij.execution.process.AnsiEscapeDecoder
 import com.intellij.execution.process.AnsiEscapeDecoder.ColoredTextAcceptor
 import com.intellij.execution.process.ProcessOutputTypes
-import com.intellij.icons.AllIcons
+import com.intellij.ide.ActivityTracker
 import com.intellij.ide.IdeBundle
 import com.intellij.ide.OccurenceNavigator
 import com.intellij.ide.OccurenceNavigator.OccurenceInfo
 import com.intellij.ide.ui.icons.icon
 import com.intellij.lang.LangBundle
 import com.intellij.openapi.Disposable
-import com.intellij.openapi.actionSystem.*
+import com.intellij.openapi.actionSystem.ActionGroup
+import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.ActionUpdateThread
+import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.DataKey
+import com.intellij.openapi.actionSystem.DataSink
+import com.intellij.openapi.actionSystem.Toggleable
+import com.intellij.openapi.actionSystem.UiDataProvider
+import com.intellij.openapi.actionSystem.remoting.ActionRemoteBehaviorSpecification
 import com.intellij.openapi.diagnostic.fileLogger
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
@@ -21,9 +35,17 @@ import com.intellij.openapi.ui.OnePixelDivider
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.NlsContexts
 import com.intellij.openapi.wm.ToolWindow
+import com.intellij.platform.buildView.BuildDataKeys
 import com.intellij.platform.buildView.BuildViewApi
-import com.intellij.ui.*
+import com.intellij.ui.AnimatedIcon
 import com.intellij.ui.ExperimentalUI.Companion.isNewUI
+import com.intellij.ui.OnePixelSplitter
+import com.intellij.ui.ScrollableContentBorder
+import com.intellij.ui.Side
+import com.intellij.ui.SimpleColoredComponent
+import com.intellij.ui.SimpleTextAttributes
+import com.intellij.ui.SystemNotifications
+import com.intellij.ui.UIBundle
 import com.intellij.ui.components.JBList
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.content.Content
@@ -41,7 +63,12 @@ import java.awt.event.ComponentEvent
 import java.awt.event.FocusEvent
 import java.beans.PropertyChangeListener
 import java.util.function.Function
-import javax.swing.*
+import javax.swing.DefaultListModel
+import javax.swing.Icon
+import javax.swing.JComponent
+import javax.swing.JPanel
+import javax.swing.ListSelectionModel
+import javax.swing.SwingUtilities
 import javax.swing.event.ListSelectionListener
 import kotlin.math.max
 
@@ -57,7 +84,6 @@ internal class FrontendMultipleBuildsView(
   private val name = buildContent.name
   private val buildMap = mutableMapOf<BuildId, FrontendBuildInfo>()
   private val viewMap = mutableMapOf<FrontendBuildInfo, FrontendBuildView>()
-  private val toolbarActions = DefaultActionGroup()
   private val threeComponentsSplitter = createSplitter()
   private val buildListModel = DefaultListModel<FrontendBuildInfo>()
   private val buildList = createList()
@@ -65,6 +91,10 @@ internal class FrontendMultipleBuildsView(
   private val focusWatcher = FocusWatcher()
   private var activeView: FrontendBuildView? = null
   private var locked = false
+
+  internal companion object {
+    val DATA_KEY = DataKey.create<FrontendMultipleBuildsView>("FrontendMultipleBuildsView")
+  }
 
   init {
     updateBuildsListRowHeight()
@@ -95,7 +125,8 @@ internal class FrontendMultipleBuildsView(
   private fun createContentUI() : JComponent {
     val consoleComponent = MultipleBuildsPanel()
     consoleComponent.add(threeComponentsSplitter, BorderLayout.CENTER)
-    val tb = ActionManager.getInstance().createActionToolbar("BuildView", toolbarActions, false)
+    val actionGroup = ActionManager.getInstance().getAction("BuildViewToolbar") as ActionGroup
+    val tb = ActionManager.getInstance().createActionToolbar("BuildView", actionGroup, false)
     tb.targetComponent = consoleComponent
     if (!isNewUI()) {
       tb.component.border = JBUI.Borders.merge(tb.component.border,
@@ -169,7 +200,7 @@ internal class FrontendMultipleBuildsView(
       return
     }
     activeView = view
-    configureToolbar(view)
+    ActivityTracker.getInstance().inc() // update toolbar
     if (view == null) {
       threeComponentsSplitter.secondComponent = null
       content.preferredFocusableComponent = null
@@ -183,22 +214,13 @@ internal class FrontendMultipleBuildsView(
     }
   }
 
-  private fun configureToolbar(view: FrontendBuildView?) {
-    toolbarActions.removeAll()
-    if (view != null) {
-      // todo view-dependent actions
-      toolbarActions.add(PinBuildViewAction())
-      toolbarActions.add(view.createFilteringActionGroup())
-    }
-  }
-
   fun handleEvent(event: BuildViewEvent) {
     when (event) {
       is BuildViewEvent.BuildStarted -> {
         val info = FrontendBuildInfo(event)
         buildMap[event.buildId] = info
         buildListModel.addElement(info)
-        val buildView = FrontendBuildView(project, scope, event.treeViewId, event.consoleComponent)
+        val buildView = FrontendBuildView(project, scope, event.buildId, event.treeViewId, event.consoleComponent)
         viewMap[info] = buildView
         Disposer.register(this, buildView)
         if (activeView == null) {
@@ -272,6 +294,20 @@ internal class FrontendMultipleBuildsView(
     }
   }
 
+  internal fun isPinnable() = content.isValid && !locked && activeView != null
+
+  internal fun isPinned() = content.isPinned
+
+  internal fun togglePinned(): Boolean {
+    val pinned = !content.isPinned
+    if (pinned) {
+      content.putUserData(ToolWindow.SHOW_CONTENT_ICON, true)
+    }
+    content.isPinned = pinned
+    log { "PinBuildViewAction: $pinned" }
+    return pinned
+  }
+
   private fun log(messageProvider: () -> String) {
     if (LOG.isDebugEnabled) {
       LOG.debug("[$id/$name] ${messageProvider()}")
@@ -300,7 +336,7 @@ internal class FrontendMultipleBuildsView(
     }
   }
 
-  private inner class MultipleBuildsPanel : JPanel(BorderLayout()), OccurenceNavigator {
+  private inner class MultipleBuildsPanel : JPanel(BorderLayout()), OccurenceNavigator, UiDataProvider {
     private fun getOccurenceNavigator(next: Boolean): Pair<Int, () -> OccurenceInfo?>? {
       if (buildListModel.size() == 0) return null
       val index = max(buildList.selectedIndex, 0)
@@ -356,6 +392,14 @@ internal class FrontendMultipleBuildsView(
       super.updateUI()
       updateBuildsListRowHeight()
     }
+
+    override fun uiDataSnapshot(sink: DataSink) {
+      sink[DATA_KEY] = this@FrontendMultipleBuildsView
+      activeView?.let {
+        sink[BuildDataKeys.BUILD_ID] = it.buildId
+        sink[FrontendBuildView.DATA_KEY] = it
+      }
+    }
   }
 
   private class MyCellRenderer : Function<FrontendBuildInfo, JComponent> {
@@ -385,38 +429,6 @@ internal class FrontendMultipleBuildsView(
     }
   }
 
-  private inner class PinBuildViewAction : DumbAwareAction(), Toggleable {
-    override fun actionPerformed(e: AnActionEvent) {
-      val selected: Boolean = !content.isPinned
-      if (selected) {
-        content.putUserData(ToolWindow.SHOW_CONTENT_ICON, true)
-      }
-      content.isPinned = selected
-      Toggleable.setSelected(e.presentation, selected)
-      log { "PinBuildViewAction: $selected" }
-    }
-
-    override fun update(e: AnActionEvent) {
-      if (!content.isValid) return
-
-      if (locked) {
-        e.presentation.isEnabledAndVisible = false
-        return
-      }
-
-      val selected = content.isPinned
-
-      e.presentation.icon = AllIcons.General.Pin_tab
-      Toggleable.setSelected(e.presentation, selected)
-      e.presentation.text = IdeBundle.message(if (selected) "action.unpin.tab" else "action.pin.tab")
-      e.presentation.isEnabledAndVisible = true
-    }
-
-    override fun getActionUpdateThread(): ActionUpdateThread {
-      return ActionUpdateThread.EDT
-    }
-  }
-
   private class FrontendBuildInfo(event: BuildViewEvent.BuildStarted) : BuildDescriptor {
     private val id = event.buildId
     private val title = event.title
@@ -431,5 +443,34 @@ internal class FrontendMultipleBuildsView(
     override fun getStartTime() = startTime
 
     override fun toString() = "Build[$id/$title]"
+  }
+}
+
+internal class PinBuildViewAction : DumbAwareAction(), Toggleable, ActionRemoteBehaviorSpecification.Frontend {
+  init {
+    templatePresentation.text = IdeBundle.message("action.pin.tab")
+  }
+
+  override fun getActionUpdateThread(): ActionUpdateThread {
+    return ActionUpdateThread.EDT
+  }
+
+  override fun update(e: AnActionEvent) {
+    val view = e.getData(FrontendMultipleBuildsView.DATA_KEY)
+    if (view == null || !view.isPinnable()) {
+      e.presentation.isEnabledAndVisible = false
+      return
+    }
+    e.presentation.isEnabledAndVisible = true
+
+    val selected = view.isPinned()
+    Toggleable.setSelected(e.presentation, selected)
+    e.presentation.text = IdeBundle.message(if (selected) "action.unpin.tab" else "action.pin.tab")
+  }
+
+  override fun actionPerformed(e: AnActionEvent) {
+    val view = e.getData(FrontendMultipleBuildsView.DATA_KEY) ?: return
+    val selected = view.togglePinned()
+    Toggleable.setSelected(e.presentation, selected)
   }
 }

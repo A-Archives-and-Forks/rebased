@@ -7,18 +7,37 @@ import com.intellij.openapi.diagnostic.rethrowControlFlowException
 import com.intellij.openapi.diagnostic.trace
 import com.intellij.openapi.progress.checkCanceled
 import com.intellij.openapi.progress.coroutineToIndicator
-import com.intellij.openapi.vcs.telemetry.VcsBackendTelemetrySpan.LogData.*
+import com.intellij.openapi.vcs.telemetry.VcsBackendTelemetrySpan.LogData.CompactingCommits
+import com.intellij.openapi.vcs.telemetry.VcsBackendTelemetrySpan.LogData.Initializing
+import com.intellij.openapi.vcs.telemetry.VcsBackendTelemetrySpan.LogData.JoiningMultiRepoCommits
+import com.intellij.openapi.vcs.telemetry.VcsBackendTelemetrySpan.LogData.JoiningNewAndOldCommits
+import com.intellij.openapi.vcs.telemetry.VcsBackendTelemetrySpan.LogData.LoadingFullLog
+import com.intellij.openapi.vcs.telemetry.VcsBackendTelemetrySpan.LogData.PartialRefreshing
+import com.intellij.openapi.vcs.telemetry.VcsBackendTelemetrySpan.LogData.ReadingAllCommits
+import com.intellij.openapi.vcs.telemetry.VcsBackendTelemetrySpan.LogData.ReadingAllCommitsInRoot
+import com.intellij.openapi.vcs.telemetry.VcsBackendTelemetrySpan.LogData.ReadingRecentCommits
+import com.intellij.openapi.vcs.telemetry.VcsBackendTelemetrySpan.LogData.ReadingRecentCommitsInRoot
+import com.intellij.openapi.vcs.telemetry.VcsBackendTelemetrySpan.LogData.Refreshing
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.platform.diagnostic.telemetry.TelemetryManager
-import com.intellij.platform.vcs.impl.shared.telemetry.VcsScope
-import com.intellij.vcs.log.*
-import com.intellij.vcs.log.data.util.trace
+import com.intellij.platform.vcs.impl.shared.telemetry.VcsTracer
+import com.intellij.platform.vcs.impl.shared.telemetry.traceSuspending
+import com.intellij.platform.vcs.impl.shared.telemetry.withVcsAttributes
+import com.intellij.vcs.log.TimedVcsCommit
+import com.intellij.vcs.log.VcsLogProvider
+import com.intellij.vcs.log.VcsLogProvider.RefsLoadingPolicy
+import com.intellij.vcs.log.VcsLogProviderRequirementsEx
+import com.intellij.vcs.log.VcsLogRootStoredRefs
+import com.intellij.vcs.log.VcsRefsContainer
 import com.intellij.vcs.log.graph.GraphCommit
 import com.intellij.vcs.log.graph.GraphCommitImpl
 import com.intellij.vcs.log.impl.RequirementsImpl
 import com.intellij.vcs.log.impl.SimpleLogProviderRequirements
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.onClosed
 import kotlinx.coroutines.channels.onFailure
@@ -26,7 +45,11 @@ import kotlinx.coroutines.channels.onSuccess
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.jetbrains.annotations.ApiStatus
 import org.jetbrains.annotations.TestOnly
+import org.jetbrains.annotations.VisibleForTesting
 import java.util.function.Consumer
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.measureTime
@@ -34,7 +57,8 @@ import kotlin.time.measureTimedValue
 
 private val LOG = Logger.getInstance(VcsLogRefresherImpl::class.java)
 
-internal class VcsLogRefresherImpl(
+@ApiStatus.Internal
+class VcsLogRefresherImpl(
   parentCs: CoroutineScope,
   private val storage: VcsLogStorage,
   private val providers: Map<VirtualFile, VcsLogProvider>,
@@ -56,8 +80,6 @@ internal class VcsLogRefresherImpl(
 
   private val _isBusy = MutableStateFlow(false)
   val isBusy = _isBusy.asStateFlow()
-
-  private val tracer = TelemetryManager.getInstance().getTracer(VcsScope)
 
   init {
     refresherJob = parentCs.launch(Dispatchers.Default + CoroutineName("Vcs Log Refresher"), CoroutineStart.LAZY) {
@@ -208,7 +230,7 @@ internal class VcsLogRefresherImpl(
   }
 
   private suspend fun loadFirstBlock(): VcsLogGraphData =
-    tracer.trace(Initializing) {
+    VcsTracer.traceSuspending(Initializing) {
       LOG.debug("Loading the first block")
       val commitCountRequirements = SimpleLogProviderRequirements(recentCommitCount)
       val (data, loadTime) = measureTimedValue { loadRecentData(providers.keys.associateWith { commitCountRequirements }) }
@@ -227,7 +249,7 @@ internal class VcsLogRefresherImpl(
     refreshSessionData: RefreshSessionData,
     roots: Collection<VirtualFile>,
   ): VcsLogGraphData? =
-    tracer.trace(Refreshing) {
+    VcsTracer.traceSuspending(Refreshing) {
       LOG.debug("Loading the recent data for roots $roots")
       val permanentGraph = dataPack.permanentGraph
       val currentRefs = dataPack.refsModel.refsByRoot
@@ -239,32 +261,33 @@ internal class VcsLogRefresherImpl(
         LOG.trace { "Recent log loaded in ${loadTime.inWholeMilliseconds} ms" }
         checkCanceled()
         refreshSessionData.put(currentAttemptData)
-
-        val (compoundLog, joinTime) = measureTimedValue { multiRepoJoin(refreshSessionData.commits) }
-        LOG.trace { "Recent log joined in ${joinTime.inWholeMilliseconds} ms" }
-        checkCanceled()
+        val compoundLog = multiRepoJoin(refreshSessionData.commits)
         val allNewRefs = currentRefs.toMutableMap().apply {
           replaceAll { root, refs ->
             refreshSessionData.getRefs(root) ?: refs
           }
         }
-        val joinedFullLog = join(permanentGraph.allCommits.toList(), compoundLog, currentRefs, allNewRefs)
+        checkCanceled()
+        val (joinedFullLog, joinTime) = measureTimedValue {
+          join(permanentGraph.allCommits.toList(), compoundLog, currentRefs, allNewRefs)
+        }
+        LOG.trace { "Recent log joined in ${joinTime.inWholeMilliseconds} ms" }
         if (joinedFullLog != null) {
           val (result, buildTime) = measureTimedValue {
             VcsLogGraphDataFactory.buildData(joinedFullLog, allNewRefs, providers, storage, true)
           }
           LOG.trace { "Recent log built in ${buildTime.inWholeMilliseconds} ms" }
-          return@trace result
+          return@traceSuspending result
         }
         commitCount *= 5
       }
       // couldn't join => need to reload everything; if 5000 commits is still not enough, it's worth reporting:
       LOG.info("Couldn't join ${commitCount / 5} recent commits to the log (${permanentGraph.allCommits.size} commits)")
-      return@trace null
+      return@traceSuspending null
     }
 
   private suspend fun loadFullLog(): VcsLogGraphData =
-    tracer.trace(LoadingFullLog) {
+    VcsTracer.traceSuspending(LoadingFullLog) {
       LOG.debug("Loading the full log")
       val (logInfo, loadTime) = measureTimedValue { readFullLogFromVcs() }
       LOG.trace { "Full log loaded in ${loadTime.inWholeMilliseconds} ms" }
@@ -278,7 +301,7 @@ internal class VcsLogRefresherImpl(
     }
 
   private suspend fun loadSmallDataPack(): VcsLogGraphData =
-    tracer.trace(PartialRefreshing) {
+    VcsTracer.traceSuspending(PartialRefreshing) {
       val commitCount = VcsLogGraphData.OverlayData.commitsCount
       LOG.debug("Loading a small datapack for $commitCount commits")
       try {
@@ -289,7 +312,7 @@ internal class VcsLogRefresherImpl(
         LOG.trace { "Small pack joined in ${joinTime.inWholeMilliseconds} ms" }
         val (result, buildTime) = measureTimedValue { VcsLogGraphDataFactory.buildOverlayData(compoundList, data.refs, providers, storage) }
         LOG.trace { "Small pack built in ${buildTime.inWholeMilliseconds} ms" }
-        return@trace result
+        return@traceSuspending result
       }
       catch (ce: CancellationException) {
         throw ce
@@ -300,11 +323,11 @@ internal class VcsLogRefresherImpl(
       VcsLogGraphData.Empty
     }
 
-  private fun prepareRequirements(roots: Collection<VirtualFile>, commitCount: Int, prevRefs: Map<VirtualFile, VcsLogRefsOfSingleRoot>?) =
+  private fun prepareRequirements(roots: Collection<VirtualFile>, commitCount: Int, prevRefs: Map<VirtualFile, VcsLogRootStoredRefs>?) =
     roots.associateWith { root ->
-      val refs = prevRefs?.get(root)?.allRefs?.toList()
+      val refs = prevRefs?.get(root)
       if (refs == null) {
-        RequirementsImpl(commitCount, true, listOf<VcsRef>(), false)
+        RequirementsImpl(commitCount, true, EmptyRefs, false)
       }
       else {
         RequirementsImpl(commitCount, true, refs)
@@ -312,25 +335,21 @@ internal class VcsLogRefresherImpl(
     }
 
   private suspend fun loadRecentData(requirements: Map<VirtualFile, VcsLogProvider.Requirements>): RefreshSessionData =
-    tracer.trace(ReadingRecentCommits) {
+    VcsTracer.traceSuspending(ReadingRecentCommits) {
       LOG.debug("Loading the recent data by requirements $requirements")
       val refreshSessionData = RefreshSessionData()
       for ((root, requirements) in requirements) {
         LOG.trace { "Loading recent data for root $root with requirements $requirements" }
         val provider = requireNotNull(providers[root]) { "Cannot find provider for root $root" }
-        tracer.trace(ReadingRecentCommitsInRoot) {
-          it.setAttribute("rootName", root.getName())
+        VcsTracer.traceSuspending(ReadingRecentCommitsInRoot) {
+          it.withVcsAttributes(root)
           val (data, readTime) = measureTimedValue {
-            withContext(Dispatchers.IO) {
-              coroutineToIndicator {
-                provider.readFirstBlock(root, requirements)
-              }
-            }
+            provider.readRecentCommits(root, requirements, requirements.toRefsLoadingPolicy())
           }
           LOG.trace { "Recent data loaded in ${readTime.inWholeMilliseconds} ms" }
           checkCanceled()
           val (commits, compactTime) = measureTimedValue {
-            tracer.trace(CompactingCommits) {
+            VcsTracer.traceSuspending(CompactingCommits) {
               data.commits.map {
                 compactCommit(it, root)
               }
@@ -338,7 +357,9 @@ internal class VcsLogRefresherImpl(
           }
           LOG.trace { "Recent commits compacted in ${compactTime.inWholeMilliseconds} ms" }
           checkCanceled()
-          refreshSessionData.put(root, commits, CompressedRefs(data.refs, storage))
+          val (compressedRefs, compressingTime) = measureTimedValue { RootRefsModel.create(data.refsIterable, storage) }
+          LOG.trace { "Refs compressed in ${compressingTime.inWholeMilliseconds} ms" }
+          refreshSessionData.put(root, commits, compressedRefs)
 
           val users = buildSet {
             for (metadata in data.commits) {
@@ -359,12 +380,12 @@ internal class VcsLogRefresherImpl(
     }
 
   private suspend fun readFullLogFromVcs(): RefreshSessionData =
-    tracer.trace(ReadingAllCommits) {
+    VcsTracer.traceSuspending(ReadingAllCommits) {
       val refreshSessionData = RefreshSessionData()
       for ((root, provider) in providers.entries) {
         LOG.trace("Loading the full data for root $root")
-        tracer.trace(ReadingAllCommitsInRoot) { span ->
-          span.setAttribute("rootName", root.getName())
+        VcsTracer.traceSuspending(ReadingAllCommitsInRoot) { span ->
+          span.withVcsAttributes(root)
           val graphCommits = mutableListOf<GraphCommit<Int>>()
           val (data, readTime) = measureTimedValue {
             withContext(Dispatchers.IO) {
@@ -376,7 +397,7 @@ internal class VcsLogRefresherImpl(
             }
           }
           LOG.trace { "Full data loaded and compacted in ${readTime.inWholeMilliseconds} ms" }
-          refreshSessionData.put(root, graphCommits, CompressedRefs(data.refs, storage))
+          refreshSessionData.put(root, graphCommits, RootRefsModel.create(data.refs, storage))
 
           val storeTime = measureTime { commitDataConsumer?.storeData(root, graphCommits, data.users) }
           LOG.trace { "Stored full data: ${graphCommits.size} commits, ${data.users.size} users in ${storeTime.inWholeMilliseconds} ms" }
@@ -394,15 +415,15 @@ internal class VcsLogRefresherImpl(
     return GraphCommitImpl.createIntCommit(commitIdx, parents, commit.getTimestamp())
   }
 
-  private fun join(
+  private suspend fun join(
     fullLog: List<GraphCommit<Int>>,
     recentCommits: List<GraphCommit<Int>>,
-    previousRefs: Map<VirtualFile, VcsLogRefsOfSingleRoot>,
-    newRefs: Map<VirtualFile, VcsLogRefsOfSingleRoot>,
+    previousRefs: Map<VirtualFile, VcsLogRootStoredRefs>,
+    newRefs: Map<VirtualFile, VcsLogRootStoredRefs>,
   ): List<GraphCommit<Int>>? {
     if (fullLog.isEmpty()) return recentCommits
 
-    return tracer.trace(JoiningNewAndOldCommits) {
+    return VcsTracer.traceSuspending(JoiningNewAndOldCommits) {
       val prevRefIndices = previousRefs.values.flatMapTo(IntOpenHashSet()) { it.getRefsIndexes() }
       val newRefIndices = newRefs.values.flatMapTo(IntOpenHashSet()) { it.getRefsIndexes() }
 
@@ -422,8 +443,8 @@ internal class VcsLogRefresherImpl(
     }
   }
 
-  private fun <T : GraphCommit<Int>> multiRepoJoin(commits: Collection<List<T>>): List<T> =
-    tracer.trace(JoiningMultiRepoCommits) {
+  private suspend fun <T : GraphCommit<Int>> multiRepoJoin(commits: Collection<List<T>>): List<T> =
+    VcsTracer.traceSuspending(JoiningMultiRepoCommits) {
       VcsLogMultiRepoJoiner<Int, T>().join(commits)
     }
 }
@@ -449,7 +470,7 @@ private data class RefreshRequest(
 }
 
 private class RefreshSessionData {
-  private val refsByRoot = HashMap<VirtualFile, VcsLogRefsOfSingleRoot>()
+  private val refsByRoot = HashMap<VirtualFile, VcsLogRootStoredRefs>()
   private val commitsByRoot = HashMap<VirtualFile, List<GraphCommit<Int>>>()
 
   fun put(other: RefreshSessionData) {
@@ -457,7 +478,7 @@ private class RefreshSessionData {
     refsByRoot.putAll(other.refsByRoot)
   }
 
-  fun put(root: VirtualFile, commits: List<GraphCommit<Int>>, refs: VcsLogRefsOfSingleRoot) {
+  fun put(root: VirtualFile, commits: List<GraphCommit<Int>>, refs: VcsLogRootStoredRefs) {
     commitsByRoot[root] = commits
     refsByRoot[root] = refs
   }
@@ -465,10 +486,10 @@ private class RefreshSessionData {
   val commits: Collection<List<GraphCommit<Int>>>
     get() = commitsByRoot.values
 
-  val refs: Map<VirtualFile, VcsLogRefsOfSingleRoot>
+  val refs: Map<VirtualFile, VcsLogRootStoredRefs>
     get() = refsByRoot.toMap()
 
-  fun getRefs(root: VirtualFile): VcsLogRefsOfSingleRoot? = refsByRoot[root]
+  fun getRefs(root: VirtualFile): VcsLogRootStoredRefs? = refsByRoot[root]
 }
 
 /**
@@ -484,3 +505,11 @@ private inline fun <T> Channel<T>.receiveAll(consumer: (T) -> Unit) {
   }
   while (nextItem != null)
 }
+
+private class LoadRefsPolicy(override val previouslyLoadedRefs: VcsRefsContainer) : RefsLoadingPolicy.LoadAllRefs
+
+@ApiStatus.Internal
+@VisibleForTesting
+fun VcsLogProvider.Requirements.toRefsLoadingPolicy(): RefsLoadingPolicy =
+  if (this !is VcsLogProviderRequirementsEx || !isRefreshRefs) RefsLoadingPolicy.FromLoadedCommits
+  else LoadRefsPolicy(previousRefs)

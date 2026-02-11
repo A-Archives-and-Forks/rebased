@@ -1,4 +1,4 @@
-// Copyright 2000-2025 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
+// Copyright 2000-2026 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 
 package org.jetbrains.kotlin.idea.highlighter;
 
@@ -78,6 +78,11 @@ public class HighlightExitPointsTestGenerated extends AbstractCustomHighlightUsa
     @TestMetadata("forLoopNestedBreak2.kt")
     public void testForLoopNestedBreak2() throws Exception {
         runTest("testData/exitPoints/forLoopNestedBreak2.kt");
+    }
+
+    @TestMetadata("forLoopNestedBreakInLocalProperty.kt")
+    public void testForLoopNestedBreakInLocalProperty() throws Exception {
+        runTest("testData/exitPoints/forLoopNestedBreakInLocalProperty.kt");
     }
 
     @TestMetadata("forLoopNestedLabeledBreak.kt")
@@ -303,6 +308,56 @@ public class HighlightExitPointsTestGenerated extends AbstractCustomHighlightUsa
     @TestMetadata("returnWhenStatement.kt")
     public void testReturnWhenStatement() throws Exception {
         runTest("testData/exitPoints/returnWhenStatement.kt");
+    }
+
+    @TestMetadata("sequenceInLambda.kt")
+    public void testSequenceInLambda() throws Exception {
+        runTest("testData/exitPoints/sequenceInLambda.kt");
+    }
+
+    @TestMetadata("sequenceNested.kt")
+    public void testSequenceNested() throws Exception {
+        runTest("testData/exitPoints/sequenceNested.kt");
+    }
+
+    @TestMetadata("sequenceNested2.kt")
+    public void testSequenceNested2() throws Exception {
+        runTest("testData/exitPoints/sequenceNested2.kt");
+    }
+
+    @TestMetadata("sequenceNestedMixedSyntax.kt")
+    public void testSequenceNestedMixedSyntax() throws Exception {
+        runTest("testData/exitPoints/sequenceNestedMixedSyntax.kt");
+    }
+
+    @TestMetadata("sequenceNestedParenthesized.kt")
+    public void testSequenceNestedParenthesized() throws Exception {
+        runTest("testData/exitPoints/sequenceNestedParenthesized.kt");
+    }
+
+    @TestMetadata("sequenceSimple.kt")
+    public void testSequenceSimple() throws Exception {
+        runTest("testData/exitPoints/sequenceSimple.kt");
+    }
+
+    @TestMetadata("sequenceTryCatch.kt")
+    public void testSequenceTryCatch() throws Exception {
+        runTest("testData/exitPoints/sequenceTryCatch.kt");
+    }
+
+    @TestMetadata("sequenceWithControlFlow.kt")
+    public void testSequenceWithControlFlow() throws Exception {
+        runTest("testData/exitPoints/sequenceWithControlFlow.kt");
+    }
+
+    @TestMetadata("sequenceWithLambdaContinue.kt")
+    public void testSequenceWithLambdaContinue() throws Exception {
+        runTest("testData/exitPoints/sequenceWithLambdaContinue.kt");
+    }
+
+    @TestMetadata("sequenceWithReturn.kt")
+    public void testSequenceWithReturn() throws Exception {
+        runTest("testData/exitPoints/sequenceWithReturn.kt");
     }
 
     @TestMetadata("simple.kt")

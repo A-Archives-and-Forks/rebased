@@ -1,4 +1,4 @@
-// Copyright 2000-2025 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
+// Copyright 2000-2026 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package com.intellij.openapi.vfs.newvfs;
 
 import com.intellij.openapi.application.Application;
@@ -10,6 +10,7 @@ import com.intellij.openapi.progress.ProcessCanceledException;
 import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.progress.util.PingProgress;
 import com.intellij.openapi.util.Disposer;
+import com.intellij.openapi.vfs.AfterEventShouldBeFiredBeforeOtherListeners;
 import com.intellij.openapi.vfs.AsyncFileListener;
 import com.intellij.openapi.vfs.VirtualFileManager;
 import com.intellij.openapi.vfs.impl.VirtualFileManagerImpl;
@@ -174,17 +175,18 @@ public final class AsyncEventSupport {
     }
   }
 
-  private static void afterVfsChange(@NotNull List<AsyncFileListener.ChangeApplier> appliers) {
+  public static void afterVfsChange(@NotNull List<AsyncFileListener.ChangeApplier> appliers) {
     invokeAppliers(appliers, AsyncFileListener.ChangeApplier::afterVfsChange);
   }
 
   @RequiresWriteLock
   static void processEventsFromRefresh(@NotNull List<CompoundVFileEvent> events,
                                        @NotNull List<AsyncFileListener.ChangeApplier> appliers,
-                                       boolean asyncProcessing) {
+                                       boolean excludeAsyncListeners) {
     beforeVfsChange(appliers);
+    List<AsyncFileListener.ChangeApplier> earlyAfterEventChangeAppliers = ContainerUtil.filter(appliers, applier -> applier instanceof AfterEventShouldBeFiredBeforeOtherListeners);
     try {
-      ((PersistentFSImpl)PersistentFS.getInstance()).processEventsImpl(events, asyncProcessing);
+      ((PersistentFSImpl)PersistentFS.getInstance()).processEventsImpl(events, earlyAfterEventChangeAppliers, excludeAsyncListeners);
     }
     catch (Throwable e) {
       if (e instanceof ControlFlowException) {
@@ -193,7 +195,7 @@ public final class AsyncEventSupport {
       LOG.error(e);
     }
     finally {
-      afterVfsChange(appliers);
+      afterVfsChange(ContainerUtil.filter(appliers, applier -> !(applier instanceof AfterEventShouldBeFiredBeforeOtherListeners)));
     }
   }
 }

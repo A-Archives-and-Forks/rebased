@@ -8,10 +8,10 @@ import com.intellij.openapi.ui.MessageDialogBuilder
 import com.intellij.openapi.wm.ex.WelcomeScreenProjectProvider
 import com.intellij.platform.PlatformProjectOpenProcessor
 import com.intellij.pycharm.community.ide.impl.PyCharmCommunityCustomizationBundle
-import com.intellij.pycharm.community.ide.impl.miscProject.impl.MISC_PROJECT_NAME
 import com.intellij.pycharm.community.ide.impl.miscProject.impl.MISC_PROJECT_WITH_WELCOME_NAME
 import com.intellij.pycharm.community.ide.impl.miscProject.impl.miscProjectDefaultPath
 import com.jetbrains.python.projectCreation.createVenvAndSdk
+import com.jetbrains.python.sdk.ModuleOrProject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.nio.file.Path
@@ -22,7 +22,8 @@ internal class PyCharmWelcomeScreenProjectProvider : WelcomeScreenProjectProvide
   override fun getWelcomeScreenProjectPath(): Path = miscProjectDefaultPath
 
   override fun doIsWelcomeScreenProject(project: Project): Boolean {
-    return project.name == MISC_PROJECT_WITH_WELCOME_NAME || project.name == MISC_PROJECT_NAME
+    val projectBasePath = project.basePath ?: return false
+    return Path.of(projectBasePath) == miscProjectDefaultPath
   }
 
   override fun doIsEditableProject(project: Project): Boolean {
@@ -43,7 +44,7 @@ internal class PyCharmWelcomeScreenProjectProvider : WelcomeScreenProjectProvide
     }
 
     if (PlatformProjectOpenProcessor.isNewProject(project)) {
-      createVenvAndSdk(project, confirmInstallation = {
+      createVenvAndSdk(ModuleOrProject.ProjectOnly(project), confirmInstallation = {
         withContext(Dispatchers.EDT) {
           MessageDialogBuilder.yesNo(
             PyCharmCommunityCustomizationBundle.message("misc.no.python.found"),

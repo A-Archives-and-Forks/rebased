@@ -1,4 +1,4 @@
-// Copyright 2000-2025 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
+// Copyright 2000-2026 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package com.intellij.platform.pasta.common
 
 import andel.operation.Operation
@@ -15,15 +15,14 @@ import fleet.kernel.rebase.InstructionCoder
 import fleet.kernel.rebase.InstructionDecodingContext
 import fleet.kernel.rebase.InstructionEncodingContext
 import fleet.kernel.rebase.SharedInstructionData
-import fleet.kernel.sharedId
 import fleet.kernel.rebase.sharedInstruction
+import fleet.kernel.sharedId
 import fleet.util.Random
 import fleet.util.UID
 import kotlinx.serialization.KSerializer
-import org.jetbrains.annotations.ApiStatus.Experimental
 import kotlin.reflect.KClass
 
-@Experimental
+
 data class ChangeDocument(
   val documentId: EID,
   val operationId: UID,
@@ -83,17 +82,17 @@ data class ChangeDocument(
           listOf(
             Op.Assert(
               eid = documentId,
-              attribute = DocumentEntity.Companion.TextAttr.attr,
+              attribute = DocumentEntity.TextAttr.attr,
               value = textAfter,
             ),
             Op.Assert(
               eid = documentId,
-              attribute = DocumentEntity.Companion.SharedAnchorStorageAttr.attr,
+              attribute = DocumentEntity.SharedAnchorStorageAttr.attr,
               value = document.sharedAnchorStorage.edit(textBefore, textAfter, operation),
             ),
             Op.Assert(
               eid = editLog.eid,
-              attribute = EditLogEntity.Companion.EditLogAttr.attr,
+              attribute = EditLogEntity.EditLogAttr.attr,
               value = editLog.editLog.append(operationId, operation),
             ),
           )

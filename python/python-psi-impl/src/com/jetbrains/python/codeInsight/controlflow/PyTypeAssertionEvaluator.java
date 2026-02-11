@@ -11,11 +11,41 @@ import com.jetbrains.python.PyNames;
 import com.jetbrains.python.PyTokenTypes;
 import com.jetbrains.python.codeInsight.stdlib.PyStdlibTypeProvider;
 import com.jetbrains.python.codeInsight.typing.PyTypingTypeProvider;
-import com.jetbrains.python.psi.*;
+import com.jetbrains.python.psi.PyAssertStatement;
+import com.jetbrains.python.psi.PyAssignmentExpression;
+import com.jetbrains.python.psi.PyBinaryExpression;
+import com.jetbrains.python.psi.PyCallExpression;
+import com.jetbrains.python.psi.PyCaseClause;
+import com.jetbrains.python.psi.PyConditionalExpression;
+import com.jetbrains.python.psi.PyConditionalStatementPart;
+import com.jetbrains.python.psi.PyElementType;
+import com.jetbrains.python.psi.PyExpression;
+import com.jetbrains.python.psi.PyGeneratorExpression;
+import com.jetbrains.python.psi.PyListLiteralExpression;
+import com.jetbrains.python.psi.PyMatchStatement;
+import com.jetbrains.python.psi.PyParenthesizedExpression;
+import com.jetbrains.python.psi.PyPrefixExpression;
+import com.jetbrains.python.psi.PyQualifiedExpression;
+import com.jetbrains.python.psi.PyRecursiveElementVisitor;
+import com.jetbrains.python.psi.PyReferenceExpression;
+import com.jetbrains.python.psi.PySequenceExpression;
+import com.jetbrains.python.psi.PySetLiteralExpression;
+import com.jetbrains.python.psi.PyTargetExpression;
+import com.jetbrains.python.psi.PyTupleExpression;
 import com.jetbrains.python.psi.impl.PyBuiltinCache;
 import com.jetbrains.python.psi.impl.PyEvaluator;
 import com.jetbrains.python.psi.impl.PyPsiUtils;
-import com.jetbrains.python.psi.types.*;
+import com.jetbrains.python.psi.types.PyClassType;
+import com.jetbrains.python.psi.types.PyInstantiableType;
+import com.jetbrains.python.psi.types.PyLiteralType;
+import com.jetbrains.python.psi.types.PyNeverType;
+import com.jetbrains.python.psi.types.PyStructuralType;
+import com.jetbrains.python.psi.types.PyTupleType;
+import com.jetbrains.python.psi.types.PyType;
+import com.jetbrains.python.psi.types.PyTypeChecker;
+import com.jetbrains.python.psi.types.PyTypeUtil;
+import com.jetbrains.python.psi.types.PyUnionType;
+import com.jetbrains.python.psi.types.TypeEvalContext;
 import one.util.streamex.StreamEx;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
@@ -121,22 +151,25 @@ public class PyTypeAssertionEvaluator extends PyRecursiveElementVisitor {
       pushAssertion(lhs, myPositive, context -> PyBuiltinCache.getInstance(lhs).getNoneType());
       return;
     }
-
-    pushAssertion(lhs, myPositive, context -> getLiteralType(rhs, context));
+    final boolean positive = myPositive;
+    pushAssertion(lhs, myPositive, context -> {
+      PyType type = getLiteralType(rhs, context);
+      return positive || type instanceof PyLiteralType ? type : null;
+    });
   }
 
   private void processIn(@NotNull PyExpression lhs, @NotNull PyExpression rhs) {
     if (rhs instanceof PyTupleExpression || rhs instanceof PyListLiteralExpression || rhs instanceof PySetLiteralExpression) {
+      final boolean positive = myPositive;
       pushAssertion(lhs, myPositive, (TypeEvalContext context) -> {
-        PyExpression[] elements = ((PySequenceExpression)rhs).getElements();
-        List<PyType> types = new ArrayList<>(elements.length);
+        final PyExpression[] elements = ((PySequenceExpression)rhs).getElements();
+        final List<PyType> types = new ArrayList<>(elements.length);
+        final PyClassType noneType = PyBuiltinCache.getInstance(rhs).getNoneType();
         for (PyExpression element : elements) {
-          PyType type =
-            PyLiteralType.isNone(element) ? PyBuiltinCache.getInstance(element).getNoneType() : getLiteralType(element, context);
-          if (type == null) {
-            return null;
+          final PyType type = PyLiteralType.isNone(element) ? noneType : getLiteralType(element, context);
+          if (type != null && (positive || type == noneType || type instanceof PyLiteralType)) {
+            types.add(type);
           }
-          types.add(type);
         }
         return PyUnionType.union(types);
       });

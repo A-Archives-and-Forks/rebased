@@ -1,4 +1,4 @@
-// Copyright 2000-2025 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
+// Copyright 2000-2026 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package org.jetbrains.intellij.build
 
 import kotlinx.collections.immutable.PersistentList
@@ -44,8 +44,6 @@ val IDEA_BUNDLED_PLUGINS: PersistentList<String> = REBASED_BUNDLED_PLUGINS + per
   "intellij.android.gradle.declarative.lang.ide",
   "intellij.android.gradle.dsl",
   "intellij.gradle.java",
-  "intellij.vcs.svn",
-  "intellij.vcs.hg",
   "intellij.groovy",
   "intellij.groovy.live.templates",
   "intellij.junit",

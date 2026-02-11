@@ -81,6 +81,7 @@ internal class BazelBuildFileGenerator(
   val ultimateRoot: Path?,
   val communityRoot: Path,
   private val project: JpsProject,
+  private val projectDir: Path,
   val urlCache: UrlCache,
   val customModules: Map<String, CustomModuleDescription>,
 ) {
@@ -144,7 +145,10 @@ internal class BazelBuildFileGenerator(
     for (element in module.dependenciesList.dependencies) {
       if (element is JpsModuleDependency) {
         val ref = element.moduleReference
-        getModuleDescriptor(requireNotNull(ref.resolve()) { "Cannot resolve module ${ref.moduleName}" })
+        val resolved = requireNotNull(ref.resolve()) {
+          "Cannot resolve module ${ref.moduleName} (dependency of '${module.name}') in $projectDir/.idea/modules.xml"
+        }
+        getModuleDescriptor(resolved)
       }
     }
 
@@ -578,17 +582,17 @@ internal class BazelBuildFileGenerator(
 
       @Suppress("CascadeIf")
       if (module.name == "fleet.util.multiplatform" || module.name == "intellij.platform.multiplatformSupport") {
-        option("exported_compiler_plugins", listOf("@lib//:expects-plugin"))
+        option("exported_compiler_plugins", listOf("@community//fleet/compiler-plugins/expects:expects-plugin"))
       }
       //else if (module.name == "fleet.rhizomedb") {
         // https://youtrack.jetbrains.com/issue/IJI-2662/RhizomedbCommandLineProcessor-requires-output-dir-but-we-dont-have-it-for-Bazel-compilation
         //option("exported_compiler_plugins", arrayOf("@lib//:rhizomedb-plugin"))
       //}
       else if (module.name == "fleet.rpc") {
-        option("exported_compiler_plugins", listOf("@lib//:rpc-plugin"))
+        option("exported_compiler_plugins", listOf("@community//fleet/compiler-plugins/rpc:rpc-plugin"))
       }
       else if (module.name == "fleet.noria.cells") {
-        option("exported_compiler_plugins", listOf("@lib//:noria-plugin"))
+        option("exported_compiler_plugins", listOf("@community//fleet/compiler-plugins/noria:noria-plugin"))
       }
 
       var deps = moduleList.deps.get(moduleDescriptor)
@@ -1046,6 +1050,12 @@ private fun computeKotlincOptions(buildFile: BuildFile, module: ModuleDescriptor
       options.put("plugin_options", pluginOptions.map {
         it.replace("${module.bazelBuildFileDir.invariantSeparatorsPathString}/", "${'$'}BASE_DIR$/${module.relativePathFromProjectRoot.invariantSeparatorsPathString}/")
       })
+    }
+  }
+  // progressive
+  handleArgument(K2JVMCompilerArguments::progressiveMode) {
+    if (!it) {
+      options.put("progressive", false)
     }
   }
   //x_allow_kotlin_package

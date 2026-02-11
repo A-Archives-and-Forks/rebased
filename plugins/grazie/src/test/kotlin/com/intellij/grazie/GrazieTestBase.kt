@@ -12,7 +12,10 @@ import com.intellij.grazie.spellcheck.GrazieCheckers
 import com.intellij.grazie.spellcheck.GrazieSpellCheckingInspection
 import com.intellij.grazie.text.TextChecker
 import com.intellij.grazie.utils.TextStyleDomain
-import com.intellij.grazie.utils.TextStyleDomain.*
+import com.intellij.grazie.utils.TextStyleDomain.AIPrompt
+import com.intellij.grazie.utils.TextStyleDomain.CodeComment
+import com.intellij.grazie.utils.TextStyleDomain.CodeDocumentation
+import com.intellij.grazie.utils.TextStyleDomain.Commit
 import com.intellij.lang.Language
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.PathManager
@@ -73,7 +76,7 @@ abstract class GrazieTestBase : BasePlatformTestCase() {
       if (!Files.exists(zip)) {
         fail("Hunspell-${lang.iso} not found in classpath")
       }
-      val outputDir = GrazieDynamic.getLangDynamicFolder(lang).resolve(lang.hunspellRemote!!.storageName)
+      val outputDir = GrazieDynamic.dynamicFolder.resolve(lang.hunspellRemote!!.storageName)
       Files.createDirectories(outputDir)
       ZipUtil.extract(zip, outputDir, HunspellDescriptor.filenameFilter())
       getInstance(project).spellChecker!!.addDictionary(lang.dictionary!!)
@@ -85,7 +88,7 @@ abstract class GrazieTestBase : BasePlatformTestCase() {
     }
 
     private fun getDictionaryPath(lang: Lang): String {
-      return GrazieDynamic.getLangDynamicFolder(lang).resolve(lang.hunspellRemote!!.file).toString()
+      return GrazieDynamic.dynamicFolder.resolve(lang.hunspellRemote!!.file).toString()
     }
   }
 

@@ -2,6 +2,7 @@
 package com.intellij.platform.instanceContainer.tests
 
 import com.intellij.platform.instanceContainer.CycleInitializationException
+import com.intellij.platform.instanceContainer.InstanceNotOverridableException
 import com.intellij.platform.instanceContainer.InstanceNotRegisteredException
 import com.intellij.platform.instanceContainer.internal.*
 import com.intellij.testFramework.assertErrorLogged
@@ -19,7 +20,7 @@ class InstanceContainerTest {
   fun `disposed container`(testInfo: TestInfo): Unit = timeoutRunBlocking {
     val containerName = testInfo.displayName
     ScopeHolder(this, EmptyCoroutineContext, containerName).use { holder ->
-      val container = InstanceContainerImpl(holder, containerName, null, false)
+      val container = InstanceContainerImpl(holder, containerName, null, false, false)
       container.dispose()
       assertThrows<ContainerDisposedException> {
         container.instance(MyServiceInterface::class.java)
@@ -46,10 +47,10 @@ class InstanceContainerTest {
         container.startRegistration(CoroutineScope(CoroutineName("")))
       }
       assertThrows<ContainerDisposedException> {
-        container.registerInitializer(MyServiceInterface::class.java, ThrowingInitializer, override = false)
+        container.registerInitializer(MyServiceInterface::class.java, ThrowingInitializer(), override = false)
       }
       assertThrows<ContainerDisposedException> {
-        container.registerInitializer(MyServiceInterface::class.java, ThrowingInitializer, override = true)
+        container.registerInitializer(MyServiceInterface::class.java, ThrowingInitializer(), override = true)
       }
       assertThrows<ContainerDisposedException> {
         container.registerInstance(MyServiceInterface::class.java, MyServiceImplementation1())
@@ -87,7 +88,7 @@ class InstanceContainerTest {
 
       // cannot use completed registrar
       assertThrows<IllegalStateException> {
-        registrar.registerInitializer("", ThrowingInitializer)
+        registrar.registerInitializer("", ThrowingInitializer())
       }
     }
   }
@@ -105,10 +106,10 @@ class InstanceContainerTest {
 
         // re-registration in the same scope
         assertErrorLogged<InstanceAlreadyRegisteredException> {
-          registerInitializer(keyClassName, ThrowingInitializer, override = false)
+          registerInitializer(keyClassName, ThrowingInitializer(), override = false)
         }
 
-        assertNotNull(complete())
+        assertNotNull(complete()?.unregisterHandle)
       }
       assertEquals(1, container.instanceHolders().size)
       val holder = assertRegistered(container, keyClass, instance, initialized = false)
@@ -116,13 +117,13 @@ class InstanceContainerTest {
       container.startRegistration(pluginScope).run {
         // re-registration in a different scope
         assertErrorLogged<InstanceAlreadyRegisteredException> {
-          registerInitializer(keyClassName, ThrowingInitializer, override = false)
+          registerInitializer(keyClassName, ThrowingInitializer(), override = false)
         }
         assertNull(complete())
       }
       assertRegistered(container, keyClass, instance, initialized = true)
 
-      val unregistered = handle.unregister().entries.single()
+      val unregistered = handle.unregister().unregisteredInstances.entries.single()
       assertEquals(keyClassName, unregistered.key)
       assertSame(holder, unregistered.value)
     }
@@ -137,7 +138,7 @@ class InstanceContainerTest {
 
       fun InstanceRegistrar.testOverrideNonExistent() {
         assertErrorLogged<InstanceNotRegisteredException> {
-          overrideInitializer(keyClassName, ThrowingInitializer)
+          overrideInitializer(keyClassName, ThrowingInitializer())
         }
         assertNull(complete())
       }
@@ -149,21 +150,54 @@ class InstanceContainerTest {
         assertNull(complete())
       }
 
-      suspend fun InstanceRegistrar.testOverride(instance: MyServiceInterface) {
-        overrideInitializer(keyClassName, ReadyInitializer(instance))
-        val handle = assertNotNull(complete())
+      suspend fun InstanceRegistrar.testOverride(
+        instance: MyServiceInterface,
+        shadowedInstances: Set<MyServiceInterface>,
+        overrideAllowed: Boolean,
+      ) {
+        if (overrideAllowed) {
+          overrideInitializer(keyClassName, ReadyInitializer(instance))
+        }
+        else {
+          // currently we don't prevent incorrect overrides - we only log them
+          assertErrorLogged<InstanceNotOverridableException> {
+            overrideInitializer(keyClassName, ReadyInitializer(instance))
+          }
+        }
+        val registrationResult = assertNotNull(complete())
+        assertContentEquals(shadowedInstances, registrationResult.shadowedInstances.values.mapNotNull(InstanceHolder::tryGetInstance))
+
+        val unregisterHandle = registrationResult.unregisterHandle
         val holder = assertRegistered(container, keyClass, instance, initialized = false)
-        val unregistered = handle.unregister().entries.single()
+        val unregistrationResult = unregisterHandle.unregister()
+        val unregistered = unregistrationResult.unregisteredInstances.entries.single()
         assertSame(keyClassName, unregistered.key)
         assertSame(holder, unregistered.value)
+        assertEquals(registrationResult.shadowedInstances, unregistrationResult.unshadowedInstances)
       }
 
-      suspend fun InstanceRegistrar.testRemove() {
-        overrideInitializer(keyClassName, null)
-        val handle = assertNotNull(complete())
+      suspend fun InstanceRegistrar.testRemove(
+        overrideAllowed: Boolean,
+        shadowedInstances: Set<MyServiceInterface>,
+      ) {
+        if (overrideAllowed) {
+          overrideInitializer(keyClassName, null)
+        }
+        else {
+          // currently we don't prevent incorrect overrides - we only log them
+          assertErrorLogged<InstanceNotOverridableException> {
+            overrideInitializer(keyClassName, null)
+          }
+        }
+        val registrationResult = assertNotNull(complete())
+        assertContentEquals(shadowedInstances, registrationResult.shadowedInstances.values.mapNotNull(InstanceHolder::tryGetInstance))
+
+        val unregisterHandle = registrationResult.unregisterHandle
         assertNotRegistered(container, keyClass)
-        val unregistered = handle.unregister()
+        val unregistrationResult = unregisterHandle.unregister()
+        val unregistered = unregistrationResult.unregisteredInstances
         assertEquals(0, unregistered.size) // TODO consider removing [keyClass → null] mapping
+        assertEquals(registrationResult.shadowedInstances, unregistrationResult.unshadowedInstances)
       }
 
       fun InstanceRegistrar.testRemoveCancellingOut() {
@@ -186,48 +220,83 @@ class InstanceContainerTest {
       }
       assertNotRegistered(container, keyClass)
 
+      for (overrideAllowed in listOf(false, true)) {
+        container.startRegistration(pluginScope).run {
+          registerInitializer(keyClassName, ReadyInitializer(instance1, overrideAllowed))
+          val handle = assertNotNull(complete()?.unregisterHandle)
+          assertRegistered(container, keyClass, instance1, initialized = false)
+
+          // override registered
+          container.startRegistration(pluginScope).run {
+            testOverride(instance2, setOf(instance1), overrideAllowed)
+          }
+          assertRegistered(container, keyClass, instance1, initialized = true)
+
+          // remove registered
+          container.startRegistration(pluginScope).run {
+            testRemove(overrideAllowed, setOf(instance1))
+          }
+          assertRegistered(container, keyClass, instance1, initialized = true)
+
+          handle.unregister()
+        }
+        assertNotRegistered(container, keyClass)
+
+        container.startRegistration(pluginScope).run {
+          registerInitializer(keyClassName, ReadyInitializer(instance1, true))
+          val handle = assertNotNull(complete()?.unregisterHandle)
+          assertRegistered(container, keyClass, instance1, initialized = false)
+
+          // override overridden
+          container.startRegistration(pluginScope).run {
+            overrideInitializer(keyClassName, ThrowingInitializer(overrideAllowed))
+            testOverride(instance2, setOf(instance1), overrideAllowed)
+          }
+          assertRegistered(container, keyClass, instance1, initialized = true)
+
+          // remove overridden
+          container.startRegistration(pluginScope).run {
+            overrideInitializer(keyClassName, ThrowingInitializer(overrideAllowed))
+            testRemove(overrideAllowed, setOf(instance1))
+          }
+          assertRegistered(container, keyClass, instance1, initialized = true)
+
+          handle.unregister()
+        }
+        assertNotRegistered(container, keyClass)
+
+        // override registered in the same scope
+        container.startRegistration(pluginScope).run {
+          registerInitializer(keyClassName, ThrowingInitializer(overrideAllowed))
+          // existing instances are not shadowed because there is nothing to shadow - original registration is not committed yet
+          testOverride(instance1, emptySet(), overrideAllowed)
+        }
+
+        // override overridden in the same scope
+        container.startRegistration(pluginScope).run {
+          registerInitializer(keyClassName, ThrowingInitializer(true))
+          overrideInitializer(keyClassName, ThrowingInitializer(overrideAllowed))
+          // existing instances are not shadowed because there is nothing to shadow - original registration is not committed yet
+          testOverride(instance1, emptySet(), overrideAllowed)
+        }
+      }
+
       container.startRegistration(pluginScope).run {
-        registerInitializer(keyClassName, ReadyInitializer(instance1))
-        val handle = assertNotNull(complete())
+        registerInitializer(keyClassName, ReadyInitializer(instance1, true))
+        val handle = assertNotNull(complete()?.unregisterHandle)
         assertRegistered(container, keyClass, instance1, initialized = false)
-
-        // override registered
-        container.startRegistration(pluginScope).run {
-          testOverride(instance2)
-        }
-        assertRegistered(container, keyClass, instance1, initialized = true)
-
-        // override overridden
-        container.startRegistration(pluginScope).run {
-          overrideInitializer(keyClassName, ThrowingInitializer)
-          testOverride(instance2)
-        }
-        assertRegistered(container, keyClass, instance1, initialized = true)
 
         // override removed
         container.startRegistration(pluginScope).run {
           overrideInitializer(keyClassName, null)
-          testOverride(instance2)
-        }
-        assertRegistered(container, keyClass, instance1, initialized = true)
-
-        // remove registered
-        container.startRegistration(pluginScope).run {
-          testRemove()
-        }
-        assertRegistered(container, keyClass, instance1, initialized = true)
-
-        // remove overridden
-        container.startRegistration(pluginScope).run {
-          overrideInitializer(keyClassName, ThrowingInitializer)
-          testRemove()
+          testOverride(instance2, setOf(instance1), true)
         }
         assertRegistered(container, keyClass, instance1, initialized = true)
 
         // remove removed
         container.startRegistration(pluginScope).run {
           overrideInitializer(keyClassName, null)
-          testRemove()
+          testRemove(true, setOf(instance1))
         }
         assertRegistered(container, keyClass, instance1, initialized = true)
 
@@ -235,42 +304,29 @@ class InstanceContainerTest {
       }
       assertNotRegistered(container, keyClass)
 
-      // override registered in the same scope
-      container.startRegistration(pluginScope).run {
-        registerInitializer(keyClassName, ThrowingInitializer)
-        testOverride(instance1)
-      }
-
-      // override overridden in the same scope
-      container.startRegistration(pluginScope).run {
-        registerInitializer(keyClassName, ThrowingInitializer)
-        overrideInitializer(keyClassName, ThrowingInitializer)
-        testOverride(instance1)
-      }
-
       // override removed in the same scope
       container.startRegistration(pluginScope).run {
-        registerInitializer(keyClassName, ThrowingInitializer)
+        registerInitializer(keyClassName, ThrowingInitializer(true))
         overrideInitializer(keyClassName, null)
         testOverrideNonExistent()
       }
 
       // remove registered in the same scope
       container.startRegistration(pluginScope).run {
-        registerInitializer(keyClassName, ThrowingInitializer)
+        registerInitializer(keyClassName, ThrowingInitializer(true))
         testRemoveCancellingOut()
       }
 
       // remove overridden in the same scope
       container.startRegistration(pluginScope).run {
-        registerInitializer(keyClassName, ThrowingInitializer)
-        overrideInitializer(keyClassName, ThrowingInitializer)
+        registerInitializer(keyClassName, ThrowingInitializer(true))
+        overrideInitializer(keyClassName, ThrowingInitializer(true))
         testRemoveCancellingOut()
       }
 
       // remove removed in the same scope
       container.startRegistration(pluginScope).run {
-        registerInitializer(keyClassName, ThrowingInitializer)
+        registerInitializer(keyClassName, ThrowingInitializer(true))
         overrideInitializer(keyClassName, null)
         testRemoveNonExistent()
       }
@@ -316,9 +372,14 @@ class InstanceContainerTest {
     val cancelledHolder = ScopeHolder(this, EmptyCoroutineContext, testInfo.displayName).also {
       it.containerScope.cancel()
     }
-    InstanceContainerImpl(cancelledHolder, testInfo.displayName, null, ordered = false).use { container ->
+    InstanceContainerImpl(cancelledHolder,
+                          testInfo.displayName,
+                          null,
+                          ordered = false,
+                          shouldTolerateIncorrectOverrides = false).use { container ->
       val instance = AService()
       container.registerInitializer(AService::class.java, object : InstanceInitializer {
+        override val overridable: Boolean = false
         override val instanceClassName: String get() = AService::class.java.name
         override fun loadInstanceClass(keyClass: Class<*>?): Class<*> = AService::class.java
         override suspend fun createInstance(parentScope: CoroutineScope, instanceClass: Class<*>): Any {

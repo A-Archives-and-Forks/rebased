@@ -1,9 +1,10 @@
-// Copyright 2000-2025 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
+// Copyright 2000-2026 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package com.intellij.platform.debugger.impl.frontend
 
 import com.intellij.execution.RunContentDescriptorIdImpl
 import com.intellij.execution.process.ProcessHandler
 import com.intellij.execution.ui.ConsoleView
+import com.intellij.ide.rpc.AnActionId
 import com.intellij.ide.rpc.action
 import com.intellij.ide.ui.icons.icon
 import com.intellij.openapi.Disposable
@@ -65,13 +66,11 @@ private class StackFrameUpdate private constructor(val frame: FrontendXStackFram
 
 @VisibleForTesting
 @ApiStatus.Internal
-class FrontendXDebuggerSession private constructor(
+class FrontendXDebuggerSession(
   override val project: Project,
   scope: CoroutineScope,
   private val manager: FrontendXDebuggerManager,
   private val sessionDto: XDebugSessionDto,
-  override val processHandler: ProcessHandler,
-  override val consoleView: ConsoleView?,
 ) : XDebugSessionProxy {
   private val cs = scope.childScope("Session ${sessionDto.id}")
   private val tabScope = scope.childScope("Session tab ${sessionDto.id}")
@@ -154,6 +153,16 @@ class FrontendXDebuggerSession private constructor(
 
   override val sessionName: String = sessionDto.sessionName
   override val sessionData: XDebugSessionData = FrontendXDebugSessionData(sessionDto.sessionDataDto, tabScope, sessionStateFlow)
+
+  override val processHandler: ProcessHandler = createFrontendProcessHandler(project, sessionDto.processHandlerDto)
+
+  private val consoleViewDeferred: Deferred<ConsoleView?> = scope.async {
+    sessionDto.consoleViewData?.consoleView(processHandler)
+  }
+
+  @OptIn(ExperimentalCoroutinesApi::class)
+  override val consoleView: ConsoleView?
+    get() = if (consoleViewDeferred.isCompleted) consoleViewDeferred.getCompleted() else null
 
   override val restartActions: List<AnAction>
     get() = sessionDto.restartActions.mapNotNull { it.action() }
@@ -332,6 +341,9 @@ class FrontendXDebuggerSession private constructor(
 
     val proxy = this@FrontendXDebuggerSession
     val tab = withContext(Dispatchers.EDT) {
+      // we need to await for the console view to be initialized before tab is created
+      // so [consoleView] will return an up-to-date result
+      consoleViewDeferred.await()
       // TODO restore content to reuse on frontend if needed (it is not used now in create)
       XDebugSessionTab.create(proxy, tabInfo.iconId?.icon(), tabInfo.executionEnvironmentProxyDto?.executionEnvironment(project, tabScope), null,
                               tabInfo.forceNewDebuggerUi, tabInfo.withFramesCustomization, tabInfo.defaultFramesViewKey).apply {
@@ -410,9 +422,9 @@ class FrontendXDebuggerSession private constructor(
     }
 
     currentStackFrame.value = StackFrameUpdate.notifyChanged(frame)
-    cs.launch {
-      XDebugSessionApi.getInstance().setCurrentStackFrame(id, executionStack.id,
-                                                          frame.id, isTopFrame, changedByUser = true)
+    val suspendContext = getCurrentSuspendContext() ?: return
+    suspendContext.lifetimeScope.launch {
+      XDebugSessionApi.getInstance().setCurrentStackFrame(id, suspendContext.id, executionStack.id, frame.id, isTopFrame)
     }
   }
 
@@ -447,6 +459,10 @@ class FrontendXDebuggerSession private constructor(
     return tabLayouter ?: error("Tab layouter is accessed before tab initialization")
   }
 
+  override fun addSessionListener(listener: XDebugSessionListener) {
+    eventsDispatcher.addListener(listener)
+  }
+
   override fun addSessionListener(listener: XDebugSessionListener, disposable: Disposable) {
     eventsDispatcher.addListener(listener, disposable)
   }
@@ -460,8 +476,22 @@ class FrontendXDebuggerSession private constructor(
   }
 
   override fun registerAdditionalActions(leftToolbar: DefaultActionGroup, topLeftToolbar: DefaultActionGroup, settings: DefaultActionGroup) {
-    // TODO: addittional actions are not registered in RemDev
-    XDebugMonolithUtils.findSessionById(id)?.debugProcess?.registerAdditionalActions(leftToolbar, topLeftToolbar, settings)
+    // Only individual actions are currently serialized in RemDev.
+    // As a result, additional actions registered on the backend are added here as a flat list,
+    // and separators e.g. from the original backend structure are not preserved.
+    // We maintain two code paths: one for Monolith (preserving full group structure) and one for RemDev (flat view).
+    val monolithSession = XDebugMonolithUtils.findSessionById(id)
+    if (monolithSession != null) {
+      monolithSession.debugProcess.registerAdditionalActions(leftToolbar, topLeftToolbar, settings)
+    } else {
+      leftToolbar.addActions(sessionDto.leftToolbarActions)
+      topLeftToolbar.addActions(sessionDto.topToolbarActions)
+      settings.addActions(sessionDto.settingsActions)
+    }
+  }
+
+  private fun DefaultActionGroup.addActions(actionIds: List<AnActionId>) {
+    actionIds.forEach { id -> id.action()?.let { add(it) } }
   }
 
   override fun putKey(sink: DataSink) {
@@ -530,21 +560,6 @@ class FrontendXDebuggerSession private constructor(
 
   override suspend fun resume() {
     XDebugSessionApi.getInstance().resume(id)
-  }
-
-  companion object {
-
-    suspend fun create(
-      project: Project,
-      scope: CoroutineScope,
-      manager: FrontendXDebuggerManager,
-      sessionDto: XDebugSessionDto,
-    ): FrontendXDebuggerSession {
-      val processHandler = createFrontendProcessHandler(project, sessionDto.processHandlerDto)
-      val consoleView = sessionDto.consoleViewData?.consoleView(processHandler)
-
-      return FrontendXDebuggerSession(project, scope, manager, sessionDto, processHandler, consoleView)
-    }
   }
 }
 

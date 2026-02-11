@@ -14,7 +14,14 @@ import com.intellij.polySymbols.html.attributes.asHtmlSymbol
 import com.intellij.polySymbols.html.elements.HtmlElementSymbolDescriptor
 import com.intellij.polySymbols.html.elements.asHtmlSymbol
 import com.intellij.polySymbols.js.JS_EVENTS
-import com.intellij.polySymbols.query.*
+import com.intellij.polySymbols.query.PolySymbolCompoundScope
+import com.intellij.polySymbols.query.PolySymbolListSymbolsQueryParams
+import com.intellij.polySymbols.query.PolySymbolNameMatchQueryParams
+import com.intellij.polySymbols.query.PolySymbolQueryExecutor
+import com.intellij.polySymbols.query.PolySymbolQueryScopeContributor
+import com.intellij.polySymbols.query.PolySymbolQueryScopeProviderRegistrar
+import com.intellij.polySymbols.query.PolySymbolQueryStack
+import com.intellij.polySymbols.query.PolySymbolScope
 import com.intellij.polySymbols.utils.PolySymbolPrioritizedScope
 import com.intellij.polySymbols.utils.match
 import com.intellij.psi.PsiElement
@@ -177,6 +184,9 @@ class HtmlSymbolQueryScopeContributor : PolySymbolQueryScopeContributor {
 
     override fun getMdnDocumentation(): MdnSymbolDocumentation? =
       getDomEventDocumentation(name)
+
+    override val source: PsiElement?
+      get() = null
 
     override val project: Project?
       get() = descriptor.declaration?.project

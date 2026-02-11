@@ -54,14 +54,6 @@ public class ExecutionPointHighlighter {
 
   private final AtomicBoolean updateRequested = new AtomicBoolean();
 
-  /**
-   * @deprecated This constructor doesn't subscribe to events for updating itself. Use the overload taking a {@link Disposable}.
-   */
-  @Deprecated(forRemoval = true)
-  public ExecutionPointHighlighter(@NotNull Project project) {
-    myProject = project;
-  }
-
   public ExecutionPointHighlighter(@NotNull Project project, @NotNull Disposable parentDisposable) {
     this(project, project.getMessageBus().connect(parentDisposable));
   }
@@ -162,8 +154,8 @@ public class ExecutionPointHighlighter {
     if (myOpenFileDescriptor != null) {
       if (!navigate) {
         FileEditor editor = FileEditorManager.getInstance(myProject).getSelectedEditor(myOpenFileDescriptor.getFile());
-        if (editor instanceof TextEditor) {
-          myEditor = ((TextEditor)editor).getEditor();
+        if (editor instanceof TextEditor te) {
+          myEditor = te.getEditor();
         }
       }
       else {

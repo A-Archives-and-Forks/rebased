@@ -3139,6 +3139,11 @@ public class Py3TypeCheckerInspectionTest extends PyInspectionTestCase {
     doTest();
   }
 
+  // PY-76922
+  public void testIntersectionImplicitProtocolMatching() {
+    doTest();
+  }
+
   // PY-76822
   public void testProtocolWithAssignedPropertyInMethod() {
     doTestByText("""
@@ -4123,6 +4128,89 @@ public class Py3TypeCheckerInspectionTest extends PyInspectionTestCase {
                    def foo(c1: C1, c2: C2):
                        _: C1 = c2
                        _: C2 = c1
+                   """);
+  }
+
+  // PY-85030
+  public void testStructuralTypeAndStrictUnion() {
+    doTestByText("""
+                   responses = {
+                       100: "abc",
+                   }
+                   
+                   def process(status):
+                       if isinstance(status, int):
+                           status = responses[status]
+                       return status.lower().replace(" ", "-")
+                   
+                   def do(arg):
+                       title = "abc" if arg else 100
+                       return process(title)
+                   """);
+  }
+
+  // PY-85030
+  public void testStructuralTypeAndDefiniteReassignmentUnderCondition() {
+    doTestByText("""
+                   def f(p):
+                       if p:
+                           p = "foo"
+                       else:
+                           p = "bar"
+                       return p.lower()
+                   
+                   f(42)
+                   """);
+  }
+
+  // PY-86655
+  public void testStructuralTypeAsyncForRequiresAiter() {
+    doTestByText("""
+                   async def async_for(p):
+                       async for i in p:
+                           pass
+                   
+                   
+                   async def async_iter():
+                       yield 42
+                   
+                   
+                   async_for(async_iter())
+                   async_for(<warning descr="Type 'list[int]' doesn't have expected attribute '__aiter__'">[1, 2, 3]</warning>)
+                   """);
+  }
+
+  // PY-76922
+  public void testIntersectionType() {
+    doTestByText("""
+                   int_and_str: int & str
+                   str_and_int: int & str
+                   int_or_str: int | str
+                   
+                   n: int = int_and_str
+                   s: str = int_and_str
+                   
+                   int_and_str = <warning descr="Expected type 'int & str', got 'int' instead">n</warning>
+                   int_and_str = <warning descr="Expected type 'int & str', got 'str' instead">s</warning>
+                   
+                   int_or_str = int_and_str
+                   int_and_str = <warning descr="Expected type 'int & str', got 'int | str' instead">int_or_str</warning>
+                   
+                   str_and_int = int_and_str
+                   int_and_str = str_and_int
+                   
+                   class A: pass
+                   class B: pass
+                   class C(A, B): pass
+                   
+                   a_and_b: A & B
+                   a_and_b = <warning descr="Expected type 'A & B', got 'A' instead">A()</warning>
+                   a_and_b = <warning descr="Expected type 'A & B', got 'B' instead">B()</warning>
+                   a_and_b = C()
+                   
+                   a: A = a_and_b
+                   b: B = a_and_b
+                   c: C = <warning descr="Expected type 'C', got 'A & B' instead">a_and_b</warning>
                    """);
   }
 }

@@ -1,4 +1,4 @@
-// Copyright 2000-2025 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
+// Copyright 2000-2026 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 @file:Suppress("ReplaceGetOrSet", "ReplacePutWithAssignment", "ReplaceJavaStaticMethodWithKotlinAnalog", "OVERRIDE_DEPRECATION", "RemoveRedundantQualifierName")
 
 package com.intellij.openapi.actionSystem.impl
@@ -1164,8 +1164,10 @@ open class ActionManagerImpl protected constructor(private val coroutineScope: C
       val providedScope = ActionCoroutineScope(coroutineContext.minusKey(Job.Key) + Dispatchers.Default + CoroutineName("actionPerformed of $actionId"), cs)
       event.installCoroutineScope(providedScope)
       installThreadContext(coroutineContext2.minusKey(ContinuationInterceptor), replace = true) {
-        SlowOperations.startSection(SlowOperations.ACTION_PERFORM).use { _ ->
-          runnable.run()
+        runInWriteIntentConditionally(action) {
+          SlowOperations.startSection(SlowOperations.ACTION_PERFORM).use { _ ->
+            runnable.run()
+          }
         }
       }
       AnActionResult.PERFORMED
@@ -1200,6 +1202,16 @@ open class ActionManagerImpl protected constructor(private val coroutineScope: C
       is AnActionResult.Ignored -> Unit
     }
     return result
+  }
+
+  // inlining here to reduce the number of service stacktraces
+  @Suppress("NOTHING_TO_INLINE")
+  inline fun runInWriteIntentConditionally(action: AnAction, runnable: Runnable) {
+    if (Utils.isLockRequired(action)) {
+      WriteIntentReadAction.run(runnable)
+    } else {
+      runnable.run()
+    }
   }
 
   @TestOnly
@@ -1237,7 +1249,11 @@ open class ActionManagerImpl protected constructor(private val coroutineScope: C
     val place = place ?: "tryToExecute"
     if (now) {
       try {
-        tryToExecuteNow(action, place, contextComponent, inputEvent, result)
+        @Suppress("DEPRECATION")
+        val dataContext = DataManager.getInstance().let {
+          if (contextComponent == null) it.dataContext else it.getDataContext(contextComponent)
+        }
+        tryToExecuteNow(action, place, contextComponent, inputEvent, result, dataContext)
       }
       finally {
         if (!result.isProcessed) {
@@ -1350,16 +1366,28 @@ private fun doPerformAction(action: AnAction,
   }
 }
 
-private fun tryToExecuteNow(action: AnAction,
-                            place: String,
-                            contextComponent: Component?,
-                            inputEvent: InputEvent?,
-                            callback: ActionCallback) {
+/**
+ * Synchronously updates and executes an action with a custom data context.
+ *
+ * @param action the action to execute
+ * @param place the action place (e.g., "MainMenu", "EditorPopup")
+ * @param contextComponent the component to use as context, may be null
+ * @param inputEvent the input event that triggered the action, may be null
+ * @param callback the callback to be notified of execution result
+ * @param dataContext the custom data context to use for update and execution
+ *
+ * @see ActionManager.tryToExecute for the public API that creates its own DataContext
+ */
+@ApiStatus.Internal
+fun tryToExecuteNow(
+  action: AnAction,
+  place: String,
+  contextComponent: Component?,
+  inputEvent: InputEvent?,
+  callback: ActionCallback,
+  dataContext: DataContext,
+) {
   val presentationFactory = PresentationFactory()
-  @Suppress("DEPRECATION")
-  val dataContext = DataManager.getInstance().let {
-    if (contextComponent == null) it.dataContext else it.getDataContext(contextComponent)
-  }
   val wrappedContext = Utils.createAsyncDataContext(dataContext)
   val actionProcessor = object : ActionProcessor() {}
   val inputEventAdjusted = inputEvent ?: KeyEvent(
@@ -1404,8 +1432,19 @@ private suspend fun tryToExecuteSuspend(action: AnAction,
   val event = AnActionEvent(wrappedContext, presentation, place, uiKind, inputEvent, 0, actionManager)
 
   //todo fix all clients and move locks into them
-  writeIntentReadAction {
+  runOnEdtWithConditionalWriteIntentSuspending(action) {
     doPerformAction(action, event, callback)
+  }
+}
+
+private suspend fun runOnEdtWithConditionalWriteIntentSuspending(action: AnAction, computation: suspend () -> Unit) {
+  val dispatcher = if (Utils.isLockRequired(action)) {
+    Dispatchers.EDT
+  } else {
+    Dispatchers.UI
+  }
+  withContext(dispatcher) {
+    computation()
   }
 }
 

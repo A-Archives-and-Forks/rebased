@@ -60,6 +60,7 @@ import com.intellij.platform.testFramework.plugins.*
 import com.intellij.platform.testFramework.setPluginClassLoaderForMainAndSubPlugins
 import com.intellij.platform.testFramework.unloadAndUninstallPlugin
 import com.intellij.psi.PsiFile
+import com.intellij.testFramework.DisposableRule
 import com.intellij.testFramework.EdtRule
 import com.intellij.testFramework.IndexingTestUtil
 import com.intellij.testFramework.ProjectRule
@@ -94,6 +95,10 @@ class DynamicPluginsTest {
   @Rule
   @JvmField
   val projectRule = ProjectRule()
+
+  @Rule
+  @JvmField
+  val testDisposable = DisposableRule()
 
   // FIXME in-memory fs does not work, NonShareableJavaZipFilePool wants .toFile()
   //@Rule
@@ -1156,21 +1161,42 @@ class DynamicPluginsTest {
       content {
         module("foo.module") {
           extensions("""
-            <applicationService interface="${ServiceInterface::class.qualifiedName}" 
-                                implementation="${OverriddenService::class.qualifiedName}"
+            <applicationService serviceInterface="${ServiceInterface::class.qualifiedName}" 
+                                serviceImplementation="${OverriddenService::class.qualifiedName}"
                                 overrides="true"/>
           """.trimIndent())
           includePackageClassFiles<OverriddenService>()
         }
       }
       extensions("""
-        <applicationService interface="${ServiceInterface::class.qualifiedName}" 
-                            implementation="${DefaultService::class.qualifiedName}"/>
+        <applicationService serviceInterface="${ServiceInterface::class.qualifiedName}" 
+                            serviceImplementation="${DefaultService::class.qualifiedName}"/>
       """.trimIndent())
       includePackageClassFiles<DefaultService>()
     }.buildDir(pluginsDir.resolve("foo"))
     val foo = loadDescriptorInTest(pluginsDir.resolve("foo"))
     assertThat(DynamicPlugins.loadPlugin(foo)).isFalse
+  }
+
+  @Test
+  fun `test ide-plugins-allow-dynamic-services-overrides registry flag`() {
+    for (dynamicServiceOverridesAllowed in listOf(true, false)) {
+      Registry.get("ide.plugins.allow.dynamic.services.overrides").setValue(dynamicServiceOverridesAllowed, testDisposable.disposable)
+      plugin("foo") {
+        extensions("""
+        <applicationService serviceInterface="${ServiceInterface::class.qualifiedName}" 
+                            serviceImplementation="${DefaultService::class.qualifiedName}"
+                            open="true"/>
+                            
+        <applicationService serviceInterface="${ServiceInterface::class.qualifiedName}" 
+                            serviceImplementation="${DefaultService::class.qualifiedName}"
+                            overrides="true"/>
+      """.trimIndent())
+        includePackageClassFiles<DefaultService>()
+      }.buildDir(pluginsDir.resolve("foo"))
+      val foo = loadDescriptorInTest(pluginsDir.resolve("foo"))
+      assertThat(DynamicPlugins.loadPlugin(foo)).isEqualTo(dynamicServiceOverridesAllowed)
+    }
   }
 
   @Test
@@ -1418,13 +1444,13 @@ private fun loadPluginInTest(
 }
 
 private fun assertNoLoadingErrors(pluginId: PluginId) {
-  val error = PluginManagerCore.getLoadingError(pluginId)
+  val error = PluginManagerCore.getPluginNonLoadReason(pluginId)
   assertThat(error).isNull()
 }
 
 private fun assertDisabledDependencyLoadingError(pluginId: PluginId, dependencyId: PluginId) {
-  val error = PluginManagerCore.getLoadingError(pluginId)
-  assertThat(error).isNotNull().isInstanceOf(PluginDependencyIsDisabled::class.java)
-  val disabledDependency = (error as PluginDependencyIsDisabled).dependencyId
+  val error = PluginManagerCore.getPluginNonLoadReason(pluginId)
+  assertThat(error).isNotNull().isInstanceOfAny(PluginDependencyIsDisabled::class.java, PluginDependencyCannotBeLoaded::class.java)
+  val disabledDependency = (error as? PluginDependencyIsDisabled)?.dependencyId ?: (error as? PluginDependencyCannotBeLoaded)!!.dependency.pluginId
   assertThat(disabledDependency).isNotNull().isEqualTo(dependencyId)
 }

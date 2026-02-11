@@ -1,4 +1,4 @@
-// Copyright 2000-2025 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
+// Copyright 2000-2026 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package com.intellij.structuralsearch.inspection;
 
 import com.intellij.codeInsight.daemon.HighlightDisplayKey;
@@ -8,6 +8,7 @@ import com.intellij.codeInspection.*;
 import com.intellij.codeInspection.ex.*;
 import com.intellij.dupLocator.iterators.CountingNodeIterator;
 import com.intellij.dupLocator.iterators.NodeIterator;
+import com.intellij.lang.annotation.ProblemGroup;
 import com.intellij.notification.NotificationGroupManager;
 import com.intellij.notification.NotificationType;
 import com.intellij.openapi.application.ApplicationManager;
@@ -71,6 +72,7 @@ public class SSBasedInspection extends LocalInspectionTool implements DynamicGro
 
   public static final @NonNls String SHORT_NAME = "SSBasedInspection";
   private final List<Configuration> myConfigurations = ContainerUtil.createLockFreeCopyOnWriteList();
+  private volatile List<LocalInspectionToolWrapper> myChildrenCached = null;
 
   private final Set<String> myProblemsReported = new HashSet<>(1);
   private InspectionProfileImpl mySessionProfile;
@@ -99,6 +101,7 @@ public class SSBasedInspection extends LocalInspectionTool implements DynamicGro
   public void readSettings(@NotNull Element node) throws InvalidDataException {
     myProblemsReported.clear();
     myConfigurations.clear();
+    myChildrenCached = null;
     ConfigurationManager.readConfigurations(node, myConfigurations);
     Configuration previous = null;
     boolean sorted = true;
@@ -152,7 +155,8 @@ public class SSBasedInspection extends LocalInspectionTool implements DynamicGro
   }
 
   @Override
-  public @NotNull PsiElementVisitor buildVisitor(@NotNull ProblemsHolder holder, boolean isOnTheFly, @NotNull LocalInspectionToolSession session) {
+  public @NotNull PsiElementVisitor buildVisitor(@NotNull ProblemsHolder holder, boolean isOnTheFly, 
+                                                 @NotNull LocalInspectionToolSession session) {
     if (myConfigurations.isEmpty()) return PsiElementVisitor.EMPTY_VISITOR;
     final PsiFile file = holder.getFile();
     final FileType fileType = file.getFileType();
@@ -193,12 +197,7 @@ public class SSBasedInspection extends LocalInspectionTool implements DynamicGro
       }
       final String suppressId = configuration.getSuppressId();
       final String name = configuration.getName();
-      if (suppressId == null) {
-        HighlightDisplayKey.register(shortName, () -> name, SHORT_NAME, null, configuration);
-      }
-      else {
-        HighlightDisplayKey.register(shortName, () -> name, suppressId, SHORT_NAME, configuration);
-      }
+      HighlightDisplayKey.register(shortName, () -> name, StringUtil.isEmpty(suppressId) ? SHORT_NAME : suppressId, null, configuration);
     }, ModalityState.nonModal());
   }
 
@@ -212,10 +211,13 @@ public class SSBasedInspection extends LocalInspectionTool implements DynamicGro
 
   @Override
   public @NotNull List<LocalInspectionToolWrapper> getChildren() {
-    return getConfigurations().stream()
-      .filter(configuration -> configuration.getOrder() == 0)
-      .map(configuration -> new StructuralSearchInspectionToolWrapper(getConfigurationsWithUuid(configuration.getUuid())))
-      .collect(Collectors.toList());
+    if (myChildrenCached == null) {
+      myChildrenCached = myConfigurations.stream()
+        .filter(configuration -> configuration.getOrder() == 0)
+        .map(configuration -> new StructuralSearchInspectionToolWrapper(getConfigurationsWithUuid(configuration.getUuid())))
+        .collect(Collectors.toList());
+    }
+    return myChildrenCached;
   }
 
   private static LocalQuickFix createQuickFix(@NotNull Project project, @NotNull MatchResult matchResult, @NotNull Configuration configuration) {
@@ -245,6 +247,7 @@ public class SSBasedInspection extends LocalInspectionTool implements DynamicGro
       return false;
     }
     myConfigurations.add(configuration);
+    myChildrenCached = null;
     return true;
   }
 
@@ -257,11 +260,15 @@ public class SSBasedInspection extends LocalInspectionTool implements DynamicGro
   }
 
   public boolean removeConfiguration(@NotNull Configuration configuration) {
-    return myConfigurations.remove(configuration);
+    boolean removed = myConfigurations.remove(configuration);
+    if (removed) myChildrenCached = null;
+    return removed;
   }
 
   public boolean removeConfigurationsWithUuid(@NotNull String uuid) {
-    return myConfigurations.removeIf(c -> c.getUuid().equals(uuid));
+    boolean removed = myConfigurations.removeIf(c -> c.getUuid().equals(uuid));
+    if (removed) myChildrenCached = null;
+    return removed;
   }
 
   public InspectionMetaDataDialog createMetaDataDialog(Project project, @NotNull String profileName, @Nullable Configuration configuration) {
@@ -340,19 +347,22 @@ public class SSBasedInspection extends LocalInspectionTool implements DynamicGro
 
     private void registerProblem(@NotNull MatchResult matchResult, @NotNull Configuration configuration, @NotNull ProblemsHolder holder) {
       final PsiElement element = matchResult.getMatch();
-      PsiFile containingFile = element.getContainingFile();
-      PsiFile templateFile = PsiUtilCore.getTemplateLanguageFile(containingFile);
+      final PsiFile containingFile = element.getContainingFile();
+      final PsiFile templateFile = PsiUtilCore.getTemplateLanguageFile(containingFile);
       if (!element.isPhysical() || holder.getFile() != containingFile && holder.getFile() != templateFile) {
         return;
       }
       final LocalQuickFix fix = createQuickFix(element.getProject(), matchResult, configuration);
       final Configuration mainConfiguration = getMainConfiguration(configuration);
       final String name = ObjectUtils.notNull(mainConfiguration.getProblemDescriptor(), mainConfiguration.getName());
-      final InspectionManager manager = holder.getManager();
       final ProblemDescriptor descriptor =
-        manager.createProblemDescriptor(element, name, fix, GENERIC_ERROR_OR_WARNING, holder.isOnTheFly());
-      final String toolName = configuration.getUuid();
-      holder.registerProblem(new ProblemDescriptorWithReporterName((ProblemDescriptorBase)descriptor, toolName));
+        holder.getManager().createProblemDescriptor(element, name, fix, GENERIC_ERROR_OR_WARNING, holder.isOnTheFly());
+      final String uuid = mainConfiguration.getUuid();
+      descriptor.setProblemGroup(new ProblemGroup() {
+        @Override
+        public String getProblemName() { return uuid; }
+      });
+      holder.registerProblem(new ProblemDescriptorWithReporterName((ProblemDescriptorBase)descriptor, uuid));
     }
 
     @Override

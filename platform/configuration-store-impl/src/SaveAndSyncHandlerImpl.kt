@@ -466,17 +466,15 @@ private suspend fun doRefreshOpenedFiles(refreshQueue: RefreshQueue) {
     return
   }
 
-  withContext(Dispatchers.EDT) {
-    writeIntentReadAction {
-      val session = refreshQueue.createSession(
-        /* async = */ false,
-        /* recursive = */ false,
-        /* finishRunnable = */ null,
-        /* state = */ ModalityState.nonModal(),
-      )
-      session.addAllFiles(files)
-      session.launch()
-    }
+  backgroundWriteAction {
+    val session = refreshQueue.createSession(
+      /* async = */ false,
+      /* recursive = */ false,
+      /* finishRunnable = */ null,
+      /* state = */ ModalityState.nonModal(),
+    )
+    session.addAllFiles(files)
+    session.launch()
   }
 }
 

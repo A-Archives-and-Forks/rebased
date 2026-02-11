@@ -1,8 +1,16 @@
 // Copyright 2000-2025 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package com.intellij.build
 
-import com.intellij.build.events.*
+import com.intellij.build.events.BuildEvent
+import com.intellij.build.events.BuildEventsNls
+import com.intellij.build.events.EventResult
+import com.intellij.build.events.FailureResult
+import com.intellij.build.events.FinishBuildEvent
+import com.intellij.build.events.FinishEvent
+import com.intellij.build.events.MessageEvent
+import com.intellij.build.events.StartBuildEvent
 import com.intellij.ide.rpc.setupTransfer
+import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.diagnostic.debug
 import com.intellij.openapi.diagnostic.fileLogger
 import com.intellij.openapi.diagnostic.trace
@@ -16,7 +24,7 @@ import com.intellij.platform.kernel.ids.storeValueGlobally
 import com.intellij.util.SmartList
 import com.intellij.util.concurrency.EdtExecutorService
 import org.jetbrains.annotations.ApiStatus
-import java.util.*
+import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import javax.swing.Icon
@@ -35,6 +43,10 @@ class BackendMultipleBuildsView(
   companion object {
     fun getById(buildContentId: BuildContentId): BackendMultipleBuildsView? {
       return findValueById(buildContentId, BackendMultipleBuildsViewIdType)
+    }
+
+    fun getBuildViewActions(buildId: BuildId): Array<AnAction> {
+      return findValueById(buildId, BuildDataIdType)?.actions ?: AnAction.EMPTY_ARRAY
     }
 
     fun getToolWindowActivationCallback(buildId: BuildId): Runnable? {
@@ -109,6 +121,7 @@ class BackendMultipleBuildsView(
         buildInfo.buildId = id
 
         val buildView = BuildView(project, buildInfo, "build.toolwindow." + viewManager.viewName + ".selection.state", viewManager)
+        buildData.actions = buildView.createConsoleActions()
         Disposer.register(this, buildView)
         buildView.whenDisposed {
           LOG.debug { "$this build removed, buildId: $buildId" }
@@ -257,7 +270,9 @@ class BackendMultipleBuildsView(
   private object BackendMultipleBuildsViewIdType : BackendValueIdType<BuildContentId, BackendMultipleBuildsView>(::BuildContentId)
   private object BuildDataIdType : BackendValueIdType<BuildId, BuildData>(::BuildId)
 
-  private class BuildData(val activationCallback: Runnable?)
+  private class BuildData(val activationCallback: Runnable?) {
+    var actions: Array<AnAction>? = null
+  }
 
   private class BuildInfo(descriptor: BuildDescriptor) : DefaultBuildDescriptor(descriptor) {
     var statusMessage: @BuildEventsNls.Message String? = null

@@ -497,7 +497,7 @@ object DynamicPlugins {
     if (!containerDescriptor.components.isEmpty()) {
       return "Plugin '$pluginId' is not unload-safe because it declares components"
     }
-    if (containerDescriptor.services.any { it.overrides }) {
+    if (!Registry.`is`("ide.plugins.allow.dynamic.services.overrides", false) && containerDescriptor.services.any { it.overrides }) {
       return "Plugin '$pluginId' is not unload-safe because it overrides services"
     }
     return null
@@ -860,7 +860,7 @@ object DynamicPlugins {
   }
 
   internal fun notify(@NlsContexts.NotificationContent text: String, notificationType: NotificationType, vararg actions: AnAction) {
-    val notification = service<UpdateCheckerFacade>().getNotificationGroupForPluginUpdateResults().createNotification(text, notificationType)
+    val notification = UpdateCheckerFacade.getInstance().getNotificationGroupForPluginUpdateResults().createNotification(text, notificationType)
     for (action in actions) {
       notification.addAction(action)
     }
@@ -1091,7 +1091,7 @@ object DynamicPlugins {
         listenerCallbacks.forEach(Runnable::run)
 
         DynamicPluginsUsagesCollector.logDescriptorLoad(pluginDescriptor)
-        PluginManagerCore.clearLoadingErrorsFor(pluginDescriptor.pluginId)
+        PluginManagerCore.clearPluginNonLoadReasonFor(pluginDescriptor.pluginId)
         LOG.info("Plugin ${pluginDescriptor.pluginId} loaded without restart in ${System.currentTimeMillis() - loadStartTime} ms")
       }
       finally {

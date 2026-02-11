@@ -1,4 +1,4 @@
-// Copyright 2000-2025 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
+// Copyright 2000-2026 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package com.intellij.diagnostic
 
 import com.intellij.CommonBundle
@@ -29,10 +29,10 @@ import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.ui.LoadingDecorator
+import com.intellij.openapi.ui.MessageDialogBuilder
 import com.intellij.openapi.ui.OptionAction
 import com.intellij.openapi.util.NlsContexts
 import com.intellij.openapi.util.NlsSafe
-import com.intellij.openapi.util.SystemInfo
 import com.intellij.openapi.util.text.Strings
 import com.intellij.openapi.wm.IdeFrame
 import com.intellij.openapi.wm.WindowManager
@@ -45,6 +45,7 @@ import com.intellij.util.ExceptionUtil
 import com.intellij.util.application
 import com.intellij.util.concurrency.annotations.RequiresEdt
 import com.intellij.util.io.URLUtil
+import com.intellij.util.system.OS
 import com.intellij.util.text.DateFormatUtil
 import com.intellij.util.ui.JBInsets
 import com.intellij.util.ui.JBUI
@@ -56,7 +57,7 @@ import org.jetbrains.annotations.Nls
 import java.awt.*
 import java.awt.GridBagConstraints.*
 import java.awt.event.ActionEvent
-import java.net.URL
+import java.net.URI
 import java.nio.charset.StandardCharsets
 import java.util.*
 import java.util.function.Predicate
@@ -108,6 +109,7 @@ open class IdeErrorsDialog @ApiStatus.Internal @JvmOverloads constructor(
     updateControls()
     @Suppress("LeakingThis")
     myMessagePool.addListener(this)
+    peer.isMaximizable = true
   }
 
   private suspend fun loadCredentialsPanel(submitter: ErrorReportSubmitter) {
@@ -309,19 +311,11 @@ open class IdeErrorsDialog @ApiStatus.Internal @JvmOverloads constructor(
       .toList()
     myOKAction = CompositeAction(lastAction.getAction(this), additionalActions)
     val clearErrorsAction = if (!hideClearButton) ClearErrorsAction() else null
-    return if (SystemInfo.isWindows) {
-      listOfNotNull(
-        okAction,
-        clearErrorsAction,
-        cancelAction
-      )
+    return if (OS.CURRENT == OS.Windows) {
+      listOfNotNull(okAction, clearErrorsAction, cancelAction)
     }
     else {
-      listOfNotNull(
-        clearErrorsAction,
-        cancelAction,
-        okAction
-      )
+      listOfNotNull(clearErrorsAction, cancelAction, okAction)
     }.toTypedArray()
   }
 
@@ -351,9 +345,7 @@ open class IdeErrorsDialog @ApiStatus.Internal @JvmOverloads constructor(
     val messages = myMessagePool.getFatalErrors(true, true)
     val clusters = LinkedHashMap<Long, MessageCluster>()
     for (message in messages) {
-      val digest = CRC32()
-      digest.update(ExceptionUtil.getThrowableText(message.throwable).toByteArray(StandardCharsets.UTF_8))
-      clusters.computeIfAbsent(digest.value) { MessageCluster(message) }.messages.add(message)
+      clusters.computeIfAbsent(hashMessage(message)) { MessageCluster(message) }.messages.add(message)
     }
     myMessageClusters.clear()
     myMessageClusters.addAll(clusters.values)
@@ -417,9 +409,11 @@ open class IdeErrorsDialog @ApiStatus.Internal @JvmOverloads constructor(
     val pluginId = cluster.pluginId
     val plugin = cluster.plugin
     val info = StringBuilder()
+
     if (t is RemoteSerializedThrowable) {
       info.append("[backend] ")
     }
+
     if (pluginId != null && !t.isSpecialBackendException()) {
       val name = if (plugin != null) plugin.name else pluginId.toString()
       if (plugin != null && (!plugin.isBundled || plugin.allowBundledUpdate())) {
@@ -444,12 +438,16 @@ open class IdeErrorsDialog @ApiStatus.Internal @JvmOverloads constructor(
     else {
       info.append(DiagnosticBundle.message("error.list.message.blame.core", ApplicationNamesInfo.getInstance().productName))
     }
-    if (pluginId != null && !ApplicationInfo.getInstance().isEssentialPlugin(pluginId)) {
+
+    if (pluginId != null
+        && !ApplicationInfo.getInstance().isEssentialPlugin(pluginId)
+        && !isImplementationDetailPlugin(pluginId)) {
       info.append(' ')
         .append("<a style=\"white-space: nowrap;\" href=\"$DISABLE_PLUGIN_URL\">")
         .append(DiagnosticBundle.message("error.list.disable.plugin"))
         .append("</a>")
     }
+
     if (message.isSubmitting) {
       info.append(' ').append(DiagnosticBundle.message("error.list.message.submitting"))
     }
@@ -472,6 +470,7 @@ open class IdeErrorsDialog @ApiStatus.Internal @JvmOverloads constructor(
       }
       info.append("</span>")
     }
+
     myInfoLabel.text = info.toString()
     val count = cluster.messages.size
     val date = DateFormatUtil.formatPrettyDateTime(cluster.messages[count - 1].date)
@@ -498,7 +497,11 @@ open class IdeErrorsDialog @ApiStatus.Internal @JvmOverloads constructor(
     }
   }
 
-  private fun isValidUrl(url: String): Boolean = runCatching { URL(url) }.isSuccess
+  private fun isImplementationDetailPlugin(pluginId: PluginId): Boolean {
+    return PluginManagerCore.getPlugin(pluginId)?.isImplementationDetail ?: false
+  }
+
+  private fun isValidUrl(url: String): Boolean = runCatching { URI(url).toURL() }.isSuccess
 
   private fun updateDetails(cluster: MessageCluster) {
     val message = cluster.first
@@ -796,11 +799,28 @@ open class IdeErrorsDialog @ApiStatus.Internal @JvmOverloads constructor(
         NOTIFY_SUCCESS_EACH_REPORT.set(true)
 
         val reportingStarted = reportMessage(selectedCluster(), closeDialog)
-        if (!closeDialog) {
-          updateControls()
+        if (!reportingStarted) {
+          if (!closeDialog) {
+            updateControls()
+          }
+          return
         }
-        else if (reportingStarted) {
+
+        updateControls()
+        val autoReportEnabled = suggestEnablingAutoReportIfApplicable()
+        if (!autoReportEnabled) {
+          if (closeDialog) {
+            super@IdeErrorsDialog.doOKAction()
+          }
+          return
+        }
+        val reportAllStarted = reportAll(true)
+        if (reportAllStarted) {
+          notifySuccessReportAll(true)
           super@IdeErrorsDialog.doOKAction()
+        }
+        else {
+          updateControls()
         }
       }
     }
@@ -822,14 +842,31 @@ open class IdeErrorsDialog @ApiStatus.Internal @JvmOverloads constructor(
     "Thank you for chipping in. Together, we can achieve anything.",
   )
 
-  private fun notifySuccessReportAll() {
-    val content = if (application.isInternal)
-      @Suppress("HardCodedStringLiteral")
-      gratitudeMessagesInternal.random()
-    else DiagnosticBundle.message("error.report.gratitude")
+  private fun notifySuccessReportAll(withAutoReportEnabled: Boolean) {
+    val gratitude = if (application.isInternal) gratitudeMessagesInternal.random() else DiagnosticBundle.message("error.report.gratitude")
+    val content = if (withAutoReportEnabled) DiagnosticBundle.message("error.report.with.auto.report.enabled", gratitude) else gratitude
     val title = DiagnosticBundle.message("error.reports.submitted")
     val notification = Notification("Error Report", title, content, NotificationType.INFORMATION).setImportant(false)
     notification.notify(myProject)
+  }
+
+  /**
+   *  Returns true if a user enabled an automatic error report on this request
+   */
+  private fun suggestEnablingAutoReportIfApplicable(): Boolean {
+    if (!ExceptionAutoReportUtil.shouldOfferEnablingAutoReport()) {
+      return false
+    }
+    val dialogResult = MessageDialogBuilder.yesNo(
+      DiagnosticBundle.message("auto.report.suggestion.dialog.title"),
+      DiagnosticBundle.message("auto.report.suggestion.dialog.message"),
+    )
+      .yesText(DiagnosticBundle.message("auto.report.suggestion.dialog.yes.option"))
+      .noText(DiagnosticBundle.message("auto.report.suggestion.dialog.no.option"))
+      .ask(rootPane)
+
+    ExceptionAutoReportUtil.enablingAutoReportOffered(dialogResult)
+    return dialogResult
   }
 
   private inner class ReportAllAction : AbstractAction(DiagnosticBundle.message("error.report.all.action")) {
@@ -839,7 +876,8 @@ open class IdeErrorsDialog @ApiStatus.Internal @JvmOverloads constructor(
         PropertiesComponent.getInstance().setValue(LAST_OK_ACTION, ReportAction.REPORT_ALL.name)
         val reportingStarted = reportAll()
         if (reportingStarted) {
-          notifySuccessReportAll()
+          val autoReportEnabled = suggestEnablingAutoReportIfApplicable()
+          notifySuccessReportAll(autoReportEnabled)
           super@IdeErrorsDialog.doOKAction()
         }
       }
@@ -853,19 +891,24 @@ open class IdeErrorsDialog @ApiStatus.Internal @JvmOverloads constructor(
         PropertiesComponent.getInstance().setValue(LAST_OK_ACTION, ReportAction.REPORT_AND_CLEAR_ALL.name)
         val reportingStarted = reportAll()
         if (reportingStarted) {
-          notifySuccessReportAll()
           myMessagePool.clearErrors()
+          val autoReportEnabled = suggestEnablingAutoReportIfApplicable()
+          notifySuccessReportAll(autoReportEnabled)
           super@IdeErrorsDialog.doOKAction()
         }
       }
     }
   }
 
-  private fun reportAll(): Boolean {
+  private fun reportAll(onlyEligibleForAutoReport: Boolean = false): Boolean {
     var reportingStarted = true
     for (i in myMessageClusters.indices) {
       val cluster = myMessageClusters[i]
       if (!cluster.canSubmit) {
+        continue
+      }
+
+      if (onlyEligibleForAutoReport && !ExceptionAutoReportUtil.isAutoReportableException(cluster.first)) {
         continue
       }
 
@@ -943,5 +986,11 @@ open class IdeErrorsDialog @ApiStatus.Internal @JvmOverloads constructor(
     @Deprecated("use {@link PluginUtil#findPluginId} ", ReplaceWith("PluginUtil.getInstance().findPluginId(t)"), level = DeprecationLevel.ERROR)
     fun findPluginId(t: Throwable): PluginId? =
       PluginUtil.getInstance().findPluginId(t)
+
+    fun hashMessage(message: AbstractMessage): Long {
+      val digest = CRC32()
+      digest.update(ExceptionUtil.getThrowableText(message.throwable).toByteArray(StandardCharsets.UTF_8))
+      return digest.value
+    }
   }
 }

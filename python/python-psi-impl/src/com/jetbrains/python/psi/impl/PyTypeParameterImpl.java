@@ -6,7 +6,11 @@ import com.intellij.psi.stubs.IStubElementType;
 import com.intellij.util.IncorrectOperationException;
 import com.jetbrains.python.PyStubElementTypes;
 import com.jetbrains.python.codeInsight.typing.PyTypingTypeProvider;
-import com.jetbrains.python.psi.*;
+import com.jetbrains.python.psi.PyClass;
+import com.jetbrains.python.psi.PyElementVisitor;
+import com.jetbrains.python.psi.PyPsiFacade;
+import com.jetbrains.python.psi.PyTypeParameter;
+import com.jetbrains.python.psi.PyUtil;
 import com.jetbrains.python.psi.resolve.QualifiedNameFinder;
 import com.jetbrains.python.psi.stubs.PyTypeParameterStub;
 import com.jetbrains.python.psi.types.PyClassTypeImpl;
@@ -15,7 +19,7 @@ import com.jetbrains.python.psi.types.TypeEvalContext;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class PyTypeParameterImpl extends PyBaseElementImpl<PyTypeParameterStub> implements PyTypeParameter, PyInstantTypeProvider {
+public class PyTypeParameterImpl extends PyBaseElementImpl<PyTypeParameterStub> implements PyTypeParameter {
 
   public PyTypeParameterImpl(ASTNode astNode) {
     super(astNode);

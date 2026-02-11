@@ -73,9 +73,6 @@ internal class FrontendRunDashboardManager(private val project: Project) : RunDa
       frontendDtos.value = updatesFromBackend
 
       updateDashboard(true)
-      withContext(Dispatchers.EDT) {
-        RunDashboardUiManagerImpl.getInstance(project).syncContentsFromBackend()
-      }
     }
   }
 
@@ -123,7 +120,14 @@ internal class FrontendRunDashboardManager(private val project: Project) : RunDa
 
   internal suspend fun subscribeToBackendConfigurationTypesUpdates() {
     RunDashboardServiceRpc.getInstance().getConfigurationTypes(project.projectId()).collect { updateFromBackend ->
-      syncTypes(updateFromBackend)
+      configurationTypes.value = updateFromBackend
+
+      updateDashboard(true)
+      withContext(Dispatchers.EDT) {
+        if (RunDashboardUiManagerImpl.getInstance(project).syncContentsFromBackend()) {
+          updateDashboard(true)
+        }
+      }
     }
   }
 
@@ -186,17 +190,15 @@ internal class FrontendRunDashboardManager(private val project: Project) : RunDa
     return configurationTypes.value.toSet()
   }
 
-  private fun syncTypes(types: Set<String>) {
-    configurationTypes.value = types
+  override fun setTypes(types: Set<String>) {
+    LOG.debug("setTypes(${types.size} types) invoked on frontend;")
 
+    configurationTypes.value = types
+    // Filter frontend DTOs immediately to instantly remove nodes of just removed types.
     frontendDtos.update { currentDtos ->
       currentDtos.filter { dto -> dto.typeId in types }
     }
-  }
 
-  override fun setTypes(types: Set<String>) {
-    LOG.debug("setTypes(${types.size} types) invoked on frontend;")
-    syncTypes(types)
     RunDashboardServiceViewContributorHelper.scheduleSetConfigurationTypes(project, types)
     updateDashboard(true)
   }

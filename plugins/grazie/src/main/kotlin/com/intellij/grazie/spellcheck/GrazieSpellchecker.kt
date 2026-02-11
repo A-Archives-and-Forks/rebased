@@ -4,7 +4,7 @@ package com.intellij.grazie.spellcheck
 import ai.grazie.detector.heuristics.rule.RuleFilter
 import ai.grazie.utils.toLinkedSet
 import com.intellij.grazie.GrazieConfig
-import com.intellij.grazie.GrazieDynamic.getLangDynamicFolder
+import com.intellij.grazie.GrazieDynamic.dynamicFolder
 import com.intellij.grazie.GraziePlugin
 import com.intellij.grazie.ide.msg.CONFIG_STATE_TOPIC
 import com.intellij.grazie.ide.msg.GrazieStateLifecycle
@@ -21,9 +21,18 @@ import com.intellij.openapi.progress.runBlockingMaybeCancellable
 import com.intellij.openapi.util.ClassLoaderUtil.computeWithClassLoader
 import com.intellij.platform.util.coroutines.childScope
 import com.intellij.spellchecker.dictionary.Dictionary
-import com.intellij.spellchecker.dictionary.Dictionary.LookupStatus.*
+import com.intellij.spellchecker.dictionary.Dictionary.LookupStatus.Absent
+import com.intellij.spellchecker.dictionary.Dictionary.LookupStatus.Alien
+import com.intellij.spellchecker.dictionary.Dictionary.LookupStatus.Present
 import com.intellij.util.io.computeDetached
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.job
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 import org.jetbrains.annotations.ApiStatus
 import org.jetbrains.annotations.TestOnly
 import org.languagetool.JLanguageTool
@@ -39,7 +48,7 @@ class GrazieCheckers(coroutineScope: CoroutineScope) : GrazieStateLifecycle {
 
   private fun isHunspellAvailable(lang: Lang, enabledLanguages: Set<Lang>): Boolean {
     val hunspell = lang.hunspellRemote ?: return false
-    return lang in enabledLanguages && Files.exists(getLangDynamicFolder(lang).resolve(hunspell.file))
+    return lang in enabledLanguages && Files.exists(dynamicFolder.resolve(hunspell.file))
   }
 
   private fun filterCheckers(word: String): Set<SpellerTool> {

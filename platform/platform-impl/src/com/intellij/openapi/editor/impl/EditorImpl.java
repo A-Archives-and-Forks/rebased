@@ -3187,41 +3187,23 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
     }
     else {
       myCaretCursor.myIsShown = true;
+      myCaretCursor.myBlinkOpacity = 1.0f;
       myCaretCursor.repaint();
     }
   }
 
   @ApiStatus.Internal
-  final ConcurrentHashMap<Caret, Point2D> lastPosMap = new ConcurrentHashMap<>();
+  final ConcurrentHashMap<Caret, kotlin.Pair<Point2D, @Nullable LogicalPosition>> lastPosMap = new ConcurrentHashMap<>();
 
   @ApiStatus.Internal
   @Nullable
   Job caretAnimationJob = null;
 
-  @ApiStatus.Internal
-  double caretAnimationElapsed;
-
   private final @NotNull EditorCaretMoveService caretMoveService = EditorCaretMoveService.getInstance();
-
-  @ApiStatus.Internal
-  void pauseBlinking() {
-    synchronized (caretRepaintService) {
-      caretRepaintService.setEditor(this);
-      caretRepaintService.pause();
-    }
-  }
-
-  @ApiStatus.Internal
-  void resumeBlinking() {
-    synchronized (caretRepaintService) {
-      caretRepaintService.setEditor(this);
-      caretRepaintService.restart();
-    }
-  }
 
   private void setCursorPosition() {
     synchronized (caretMoveService) {
-      if (!getSettings().isAnimatedCaret() || gainedFocus.getAndSet(false)) {
+      if (!getSettings().isAnimatedCaret() || gainedFocus.getAndSet(false) || myMouseDragStarted) {
         caretMoveService.setCursorPositionImmediately(this);
       } else {
         caretMoveService.setCursorPosition(this);
@@ -3327,15 +3309,11 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
     public final @Nullable Caret myCaret;
     public final boolean myIsRtl;
 
-    @ApiStatus.Internal
-    public final float myOpacity;
-
-    CaretRectangle(@NotNull Point2D point, float width, @Nullable Caret caret, boolean isRtl, float opacity) {
+    CaretRectangle(@NotNull Point2D point, float width, @Nullable Caret caret, boolean isRtl) {
       myPoint = point;
       myWidth = Math.max(width, 2);
       myCaret = caret;
       myIsRtl = isRtl;
-      myOpacity = opacity;
     }
 
     Point2D getPoint() {
@@ -3344,7 +3322,7 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
   }
 
   final class CaretCursor {
-    private CaretRectangle @NotNull [] myLocations = {new CaretRectangle(new Point(0, 0), 0, null, false, 1.0f)};
+    private CaretRectangle @NotNull [] myLocations = {new CaretRectangle(new Point(0, 0), 0, null, false)};
     private boolean myEnabled = true;
 
     private boolean myIsShown;
@@ -3367,6 +3345,7 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
         caretRepaintService.setBlinking(blink);
         caretRepaintService.setBlinkPeriod(blinkPeriod);
         myIsShown = true;
+        myBlinkOpacity = 1.0f;
         caretRepaintService.restart();
       }
     }
@@ -3380,6 +3359,13 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
     void setActive(boolean isActive) {
       synchronized (caretRepaintService) {
         myIsShown = isActive;
+      }
+    }
+
+    void setFullOpacity() {
+      synchronized (caretRepaintService) {
+        myIsShown = true;
+        myBlinkOpacity = 1.0f;
       }
     }
 
@@ -3404,6 +3390,12 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
     long getStartTime() {
       synchronized (caretRepaintService) {
         return myStartTime;
+      }
+    }
+
+    void setStartTime(long startTime) {
+      synchronized (caretRepaintService) {
+        myStartTime = startTime;
       }
     }
 

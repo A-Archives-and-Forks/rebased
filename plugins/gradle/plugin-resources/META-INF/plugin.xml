@@ -16,12 +16,19 @@
       ]]>
   </description>
 
-  <depends optional="true" config-file="gradle-properties.xml">com.intellij.properties</depends>
+  <content namespace="jetbrains">
+    <module name="intellij.gradle.completion"/>
+    <module name="intellij.gradle.toml"/>
+    <module name="intellij.gradle.properties"/>
+  </content>
 
   <dependencies>
     <plugin id="com.intellij.modules.lang"/>
     <plugin id="com.intellij.modules.externalSystem"/>
     <module name="intellij.platform.externalSystem.impl"/>
+    <!-- region Generated dependencies - run `Generate Product Layouts` to regenerate -->
+    <module name="intellij.libraries.jspecify"/>
+    <!-- endregion -->
   </dependencies>
 
   <resource-bundle>messages.GradleBundle</resource-bundle>
@@ -49,6 +56,8 @@
                     interface="org.jetbrains.plugins.gradle.execution.GradleOrderEnumeratorHandler$FactoryImpl"
                     dynamic="true"/>
     <extensionPoint qualifiedName="org.jetbrains.plugins.gradle.issueChecker" interface="org.jetbrains.plugins.gradle.issue.GradleIssueChecker"
+                    dynamic="true"/>
+    <extensionPoint qualifiedName="org.jetbrains.plugins.gradle.executionChecker" interface="org.jetbrains.plugins.gradle.service.execution.GradleExecutionChecker"
                     dynamic="true"/>
     <extensionPoint qualifiedName="org.jetbrains.plugins.gradle.gradleJvmResolver" interface="org.jetbrains.plugins.gradle.resolvers.GradleJvmResolver"
                     dynamic="true"/>
@@ -250,6 +259,8 @@
                  description="Use ArtifactResolutionQuery instead of ArtifactView to resolve Javadoc/Sources"/>
     <registryKey key="gradle.auto.auto.jdk.fix.disabled" defaultValue="false"
                  description="Disable attempt to fix unknown JDK in Gradle configuration on project open"/>
+    <registryKey key="gradle.dependency.completion.service" defaultValue="true"
+                 description="Use dependency completion service for dependency completion in gradle scripts"/>
 
     <commandLineInspectionProjectConfigurator implementation="org.jetbrains.plugins.gradle.GradleCommandLineProjectConfigurator"/>
     <warmupConfigurator implementation="org.jetbrains.plugins.gradle.GradleWarmupConfigurator"/>

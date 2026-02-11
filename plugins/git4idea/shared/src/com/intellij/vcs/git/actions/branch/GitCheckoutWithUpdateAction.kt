@@ -11,6 +11,7 @@ import com.intellij.vcs.git.actions.GitSingleRefActions
 import com.intellij.vcs.git.branch.popup.GitBranchesPopupKeys
 import com.intellij.vcs.git.repo.GitRepositoryModel
 import com.intellij.vcs.git.rpc.GitOperationsApi
+import com.intellij.vcs.git.workingTrees.GitWorkingTreesUtil
 import git4idea.GitStandardLocalBranch
 import git4idea.i18n.GitBundle
 import org.jetbrains.annotations.ApiStatus
@@ -69,8 +70,14 @@ class GitCheckoutWithUpdateAction : GitBranchActionToBeWrapped, DumbAwareAction(
       private fun hasRemotes(repositories: List<GitRepositoryModel>): Boolean =
         repositories.any { it.state.remoteBranches.isNotEmpty() }
 
-      private fun isAlreadyCheckedOut(repositories: List<GitRepositoryModel>, branch: GitStandardLocalBranch): Boolean =
-        repositories.all { it.state.isCurrentRef(branch) }
+      private fun isAlreadyCheckedOut(repositories: List<GitRepositoryModel>, branch: GitStandardLocalBranch): Boolean {
+        if (repositories.any {
+            GitWorkingTreesUtil.getWorkingTreeWithRef(branch, it, true) != null
+          }) {
+          return true
+        }
+        return repositories.all { it.state.isCurrentRef(branch) }
+      }
 
       private fun hasTrackingInfos(repositories: List<GitRepositoryModel>, branch: GitStandardLocalBranch): Boolean =
         repositories.any { it.state.getTrackingInfo(branch) != null }

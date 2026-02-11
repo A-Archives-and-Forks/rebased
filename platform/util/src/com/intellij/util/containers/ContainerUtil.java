@@ -3,11 +3,52 @@ package com.intellij.util.containers;
 
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.openapi.util.*;
-import com.intellij.util.*;
-import org.jetbrains.annotations.*;
+import com.intellij.openapi.util.Comparing;
+import com.intellij.openapi.util.Condition;
+import com.intellij.openapi.util.Conditions;
+import com.intellij.openapi.util.Couple;
+import com.intellij.openapi.util.Disposer;
+import com.intellij.openapi.util.Factory;
+import com.intellij.openapi.util.Pair;
+import com.intellij.util.ArrayFactory;
+import com.intellij.util.ArrayUtil;
+import com.intellij.util.Function;
+import com.intellij.util.NullableFunction;
+import com.intellij.util.PairConsumer;
+import com.intellij.util.Processor;
+import com.intellij.util.SmartList;
+import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.CheckReturnValue;
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.UnknownNullability;
+import org.jetbrains.annotations.Unmodifiable;
 
-import java.util.*;
+import java.util.AbstractList;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.ConcurrentModificationException;
+import java.util.EnumSet;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.Map;
+import java.util.NavigableSet;
+import java.util.NoSuchElementException;
+import java.util.Objects;
+import java.util.RandomAccess;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -615,7 +656,9 @@ public final class ContainerUtil {
    */
   @Contract(pure = true)
   public static @Unmodifiable @NotNull <K, V> Map<K, V> intersection(@NotNull Map<? extends K, ? extends V> map1, @NotNull Map<? extends K, ? extends V> map2) {
-    if (map1.isEmpty() || map2.isEmpty()) return Collections.emptyMap();
+    if (map1.isEmpty() || map2.isEmpty()) {
+      return Collections.emptyMap();
+    }
 
     if (map2.size() < map1.size()) {
       Map<? extends K, ? extends V> t = map1;
@@ -818,7 +861,9 @@ public final class ContainerUtil {
   @Contract(pure=true)
   public static <T> @Nullable T find(T @NotNull [] array, @NotNull Condition<? super T> condition) {
     for (T element : array) {
-      if (condition.value(element)) return element;
+      if (condition.value(element)) {
+        return element;
+      }
     }
     return null;
   }
@@ -886,7 +931,9 @@ public final class ContainerUtil {
   public static <T> @Nullable T find(@NotNull Iterator<? extends T> iterator, @NotNull Condition<? super T> condition) {
     while (iterator.hasNext()) {
       T value = iterator.next();
-      if (condition.value(value)) return value;
+      if (condition.value(value)) {
+        return value;
+      }
     }
     return null;
   }
@@ -894,7 +941,9 @@ public final class ContainerUtil {
   @Contract(pure = true)
   public static <T> @Nullable T findLast(@NotNull List<? extends T> list, @NotNull Condition<? super T> condition) {
     int index = lastIndexOf(list, condition);
-    if (index < 0) return null;
+    if (index < 0) {
+      return null;
+    }
     return list.get(index);
   }
 
@@ -1044,7 +1093,9 @@ public final class ContainerUtil {
    */
   @Contract(pure = true)
   public static @Unmodifiable @NotNull <T> List<T> findAll(@NotNull Collection<? extends T> collection, @NotNull Condition<? super T> condition) {
-    if (collection.isEmpty()) return emptyList();
+    if (collection.isEmpty()) {
+      return emptyList();
+    }
 
     FreezableArrayList<T> result = new FreezableArrayList<>();
     for (T t : collection) {
@@ -1223,7 +1274,9 @@ public final class ContainerUtil {
   @CheckReturnValue
   @Contract(mutates = "param1")
   public static @Unmodifiable @NotNull <T> List<T> collect(@NotNull Iterator<? extends T> iterator) {
-    if (!iterator.hasNext()) return emptyList();
+    if (!iterator.hasNext()) {
+      return emptyList();
+    }
     FreezableArrayList<T> list = new FreezableArrayList<>();
     addAll(list, iterator);
     return list.freeze();
@@ -1244,7 +1297,9 @@ public final class ContainerUtil {
   @CheckReturnValue
   @Contract(mutates = "param1")
   public static @Unmodifiable @NotNull <T> List<T> collect(@NotNull Iterator<? extends T> iterator, @NotNull java.util.function.Predicate<? super T> predicate) {
-    if (!iterator.hasNext()) return emptyList();
+    if (!iterator.hasNext()) {
+      return emptyList();
+    }
     List<T> list = new ArrayList<>();
     while (iterator.hasNext()) {
       T o = iterator.next();
@@ -1514,7 +1569,9 @@ public final class ContainerUtil {
   @SafeVarargs
   @Contract(pure = true)
   public static @NotNull <T> Iterable<T> concat(@NotNull @Unmodifiable Iterable<? extends T> @NotNull ... iterables) {
-    if (iterables.length == 0) return Collections.emptyList();
+    if (iterables.length == 0) {
+      return Collections.emptyList();
+    }
     if (iterables.length == 1) {
       //noinspection unchecked
       return (Iterable<T>)iterables[0];
@@ -1600,7 +1657,9 @@ public final class ContainerUtil {
     for (List<? extends T> each : lists) {
       size += each.size();
     }
-    if (size == 0) return emptyList();
+    if (size == 0) {
+      return emptyList();
+    }
     int finalSize = size;
     return new SubList<>(lists, finalSize);
   }
@@ -1650,7 +1709,9 @@ public final class ContainerUtil {
    */
   @Contract(pure = true)
   public static @Unmodifiable @NotNull <T> Collection<T> intersection(@NotNull Collection<? extends T> collection1, @NotNull Collection<? extends T> collection2) {
-    if (collection1.isEmpty() || collection2.isEmpty()) return emptyList();
+    if (collection1.isEmpty() || collection2.isEmpty()) {
+      return emptyList();
+    }
 
     FreezableArrayList<T> result = new FreezableArrayList<>();
     for (T t : collection1) {
@@ -1670,8 +1731,12 @@ public final class ContainerUtil {
 
   @Contract(pure = true)
   public static @NotNull <E extends Enum<E>> EnumSet<E> intersection(@NotNull EnumSet<E> collection1, @NotNull EnumSet<E> collection2) {
-    if (collection1.isEmpty()) return collection1;
-    if (collection2.isEmpty()) return collection2;
+    if (collection1.isEmpty()) {
+      return collection1;
+    }
+    if (collection2.isEmpty()) {
+      return collection2;
+    }
 
     EnumSet<E> result = EnumSet.copyOf(collection1);
     result.retainAll(collection2);
@@ -1854,7 +1919,9 @@ public final class ContainerUtil {
   public static <T extends Comparable<? super T>> void sort(@NotNull List<T> list) {
     int size = list.size();
 
-    if (size < 2) return;
+    if (size < 2) {
+      return;
+    }
     if (size == 2) {
       T t0 = list.get(0);
       T t1 = list.get(1);
@@ -1886,7 +1953,9 @@ public final class ContainerUtil {
   public static <T> void sort(@NotNull List<T> list, @NotNull Comparator<? super T> comparator) {
     int size = list.size();
 
-    if (size < 2) return;
+    if (size < 2) {
+      return;
+    }
     if (size == 2) {
       T t0 = list.get(0);
       T t1 = list.get(1);
@@ -1918,7 +1987,9 @@ public final class ContainerUtil {
   public static <T extends Comparable<? super T>> void sort(T @NotNull [] a) {
     int size = a.length;
 
-    if (size < 2) return;
+    if (size < 2) {
+      return;
+    }
     if (size == 2) {
       T t0 = a[0];
       T t1 = a[1];
@@ -1977,7 +2048,9 @@ public final class ContainerUtil {
   public static <T> void sort(T @NotNull [] array, @NotNull Comparator<? super T> comparator) {
     int size = array.length;
 
-    if (size < 2) return;
+    if (size < 2) {
+      return;
+    }
     if (size == 2) {
       T t0 = array[0];
       T t1 = array[1];
@@ -2041,7 +2114,9 @@ public final class ContainerUtil {
    */
   @Contract(pure = true)
   public static @Unmodifiable @NotNull <T, V> List<V> map(@NotNull Collection<? extends T> collection, @NotNull Function<? super T, ? extends V> mapping) {
-    if (collection.isEmpty()) return emptyList();
+    if (collection.isEmpty()) {
+      return emptyList();
+    }
     FreezableArrayList<V> result = new FreezableArrayList<>(collection.size());
     for (T t : collection) {
       result.add(mapping.fun(t));
@@ -2278,7 +2353,9 @@ public final class ContainerUtil {
   @Contract(pure=true)
   public static <T> boolean and(T @NotNull [] iterable, @NotNull Condition<? super T> condition) {
     for (T t : iterable) {
-      if (!condition.value(t)) return false;
+      if (!condition.value(t)) {
+        return false;
+      }
     }
     return true;
   }
@@ -2286,7 +2363,9 @@ public final class ContainerUtil {
   @Contract(pure=true)
   public static <T> boolean and(@NotNull Iterable<? extends T> iterable, @NotNull Condition<? super T> condition) {
     for (T t : iterable) {
-      if (!condition.value(t)) return false;
+      if (!condition.value(t)) {
+        return false;
+      }
     }
     return true;
   }
@@ -2294,7 +2373,9 @@ public final class ContainerUtil {
   @Contract(pure=true)
   public static <T> boolean exists(T @NotNull [] array, @NotNull Condition<? super T> condition) {
     for (T t : array) {
-      if (condition.value(t)) return true;
+      if (condition.value(t)) {
+        return true;
+      }
     }
     return false;
   }
@@ -2302,7 +2383,9 @@ public final class ContainerUtil {
   @Contract(pure=true)
   public static <T> boolean exists(@NotNull Iterable<? extends T> iterable, @NotNull Condition<? super T> condition) {
     for (T t : iterable) {
-      if (condition.value(t)) return true;
+      if (condition.value(t)) {
+        return true;
+      }
     }
     return false;
   }
@@ -2474,7 +2557,9 @@ public final class ContainerUtil {
     for (Collection<? extends T> list : collections) {
       totalSize += list.size();
     }
-    if (totalSize == 0) return emptyList();
+    if (totalSize == 0) {
+      return emptyList();
+    }
 
     FreezableArrayList<T> result = new FreezableArrayList<>(totalSize);
     for (Collection<? extends T> list : collections) {
@@ -2629,8 +2714,12 @@ public final class ContainerUtil {
 
   @Contract(value = "null -> null; !null -> !null", mutates = "param1")
   public static <T> List<T> trimToSize(@Nullable List<T> list) {
-    if (list == null) return null;
-    if (list.isEmpty()) return emptyList();
+    if (list == null) {
+      return null;
+    }
+    if (list.isEmpty()) {
+      return emptyList();
+    }
 
     if (list instanceof ArrayList) {
       ((ArrayList<T>)list).trimToSize();
@@ -2778,7 +2867,9 @@ public final class ContainerUtil {
    */
   @Contract(pure = true)
   public static @Unmodifiable @NotNull <T, V> Set<V> map2Set(T @NotNull [] array, @NotNull Function<? super T, ? extends V> mapper) {
-    if (array.length == 0) return Collections.emptySet();
+    if (array.length == 0) {
+      return Collections.emptySet();
+    }
     Set<V> set = new HashSet<>(array.length);
     for (T t : array) {
       set.add(mapper.fun(t));
@@ -2791,7 +2882,9 @@ public final class ContainerUtil {
    */
   @Contract(pure = true)
   public static @Unmodifiable @NotNull <T, V> Set<V> map2Set(@NotNull Collection<? extends T> collection, @NotNull Function<? super T, ? extends V> mapper) {
-    if (collection.isEmpty()) return Collections.emptySet();
+    if (collection.isEmpty()) {
+      return Collections.emptySet();
+    }
     Set <V> set = new HashSet<>(collection.size());
     for (T t : collection) {
       set.add(mapper.fun(t));
@@ -2807,7 +2900,9 @@ public final class ContainerUtil {
    */
   @Contract(pure = true)
   public static @Unmodifiable @NotNull <T, V> Set<V> map2LinkedSet(@NotNull Collection<? extends T> collection, @NotNull Function<? super T, ? extends V> mapper) {
-    if (collection.isEmpty()) return Collections.emptySet();
+    if (collection.isEmpty()) {
+      return Collections.emptySet();
+    }
     Set <V> set = new LinkedHashSet<>(collection.size());
     for (T t : collection) {
       set.add(mapper.fun(t));
@@ -2821,7 +2916,9 @@ public final class ContainerUtil {
   @Contract(pure = true)
   public static @Unmodifiable @NotNull <T, V> Set<@NotNull V> map2SetNotNull(@NotNull Collection<? extends T> collection,
                                                                              @NotNull Function<? super T, ? extends @Nullable V> mapper) {
-    if (collection.isEmpty()) return Collections.emptySet();
+    if (collection.isEmpty()) {
+      return Collections.emptySet();
+    }
     Set <V> set = new HashSet<>(collection.size());
     for (T t : collection) {
       V value = mapper.fun(t);

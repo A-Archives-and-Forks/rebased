@@ -1,4 +1,4 @@
-<idea-plugin visibility="internal" package="com.intellij.notebooks.visualization">
+<idea-plugin visibility="internal">
   <dependencies>
     <module name="intellij.notebooks.ui"/>
     <plugin id="org.intellij.plugins.markdown"/>
@@ -70,6 +70,7 @@
                                    order="last"/>
 
     <applicationService serviceImplementation="com.intellij.notebooks.visualization.settings.NotebookSettings"/>
+    <applicationSettings service="com.intellij.notebooks.visualization.settings.NotebookSettings"/>
   </extensions>
 
   <!-- New output inlays -->

@@ -739,6 +739,9 @@ object CommunityLibraryLicenses {
     LibraryLicense(libraryName = "jsoup", url = "https://jsoup.org")
       .mit("https://jsoup.org/license"),
 
+    LibraryLicense("jspecify", libraryName = "jspecify", url = "https://github.com/jspecify/jspecify")
+      .apache("https://github.com/jspecify/jspecify/blob/main/LICENSE"),
+
     LibraryLicense(libraryName = "jsr305", url = "https://github.com/amaembo/jsr-305")
       .newBsd("https://github.com/amaembo/jsr-305/blob/master/ri/LICENSE")
       .suppliedByOrganizations("JSR305 expert group"),
@@ -1267,6 +1270,10 @@ object CommunityLibraryLicenses {
     LibraryLicense("thriftpy2", version = "0.4.13", attachedTo = "intellij.python", url = "https://github.com/Thriftpy/thriftpy2/")
       .mit("https://github.com/Thriftpy/thriftpy2/blob/master/LICENSE"),
 
+    LibraryLicense("toml4j", libraryName = "toml4j", url = "https://github.com/mwanji/toml4j")
+      .mit("https://github.com/mwanji/toml4j/blob/master/LICENSE")
+      .suppliedByPersons("Moandji Ezana"),
+
     // for traceprocessor-proto module library in intellij.android.profilersAndroid
     LibraryLicense("Trang", libraryName = "trang-core.jar", version = LibraryLicense.CUSTOM_REVISION, url = "https://relaxng.org/jclark/trang.html")
       .newBsd("https://opensource.org/license/bsd-3-clause/"),
@@ -1430,6 +1437,7 @@ object CommunityLibraryLicenses {
     jetbrainsLibrary("jetbrains.compose.hot.reload.devtools.api"),
     jetbrainsLibrary("jetbrains.compose.hot.reload.gradle.idea"),
     jetbrainsLibrary("jetbrains.intellij.deps.rwmutex.idea"),
+    jetbrainsLibrary("jetbrains.kotlin.compiler.embeddable"),
     jetbrainsLibrary("jetbrains.kotlin.compose.compiler.plugin"),
     jetbrainsLibrary("jetbrains.kotlin.jps.plugin.classpath"),
     jetbrainsLibrary("jetbrains.ml.models.jetenry.inline.prompt.detection.model"),

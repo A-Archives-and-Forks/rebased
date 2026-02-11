@@ -397,6 +397,7 @@ object CommunityModuleSets {
     embeddedModule("intellij.regexp")
     module("intellij.libraries.grpc")
     module("intellij.libraries.grpc.netty.shaded")
+    module("intellij.libraries.jspecify")
 
     moduleSet(vcs())
     moduleSet(xml())

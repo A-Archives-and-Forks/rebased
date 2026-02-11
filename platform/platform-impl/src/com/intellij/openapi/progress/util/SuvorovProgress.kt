@@ -1,4 +1,4 @@
-// Copyright 2000-2025 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
+// Copyright 2000-2026 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package com.intellij.openapi.progress.util
 
 import com.intellij.CommonBundle
@@ -18,7 +18,6 @@ import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.progress.util.ui.NiceOverlayUi
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.registry.Registry
-import com.intellij.platform.locking.impl.getGlobalThreadingSupport
 import com.intellij.ui.KeyStrokeAdapter
 import com.intellij.ui.scale.JBUIScale
 import com.intellij.util.application
@@ -111,6 +110,7 @@ object SuvorovProgress {
     if (Thread.holdsLock(awtComponentLock)) {
       val application = ApplicationManager.getApplication()
       val rwService = application.serviceIfCreated<ReadWriteActionSupport>()
+      @Suppress("TestOnlyProblems")
       if (rwService is PlatformReadWriteActionSupport) {
         rwService.signalWriteActionNeedsToBeRetried()
       }
@@ -143,16 +143,22 @@ object SuvorovProgress {
     when (value) {
       "None" -> processInvocationEventsWithoutDialog(awaitedValue, Int.MAX_VALUE)
       "NiceOverlay" -> {
-        val currentFocusedPane = KeyboardFocusManager.getCurrentKeyboardFocusManager().focusedWindow?.let(SwingUtilities::getRootPane)
-        // IJPL-203107 in remote development, there is no graphics for a component
-        if (currentFocusedPane == null || GraphicsUtil.safelyGetGraphics(currentFocusedPane) == null) {
-          // can happen also in tests
+        try {
+          val currentFocusedPane = KeyboardFocusManager.getCurrentKeyboardFocusManager().focusedWindow?.let(SwingUtilities::getRootPane)
+          // IJPL-203107 in remote development, there is no graphics for a component
+          if (currentFocusedPane == null || GraphicsUtil.safelyGetGraphics(currentFocusedPane) == null) {
+            // can happen also in tests
+            processInvocationEventsWithoutDialog(awaitedValue, Int.MAX_VALUE)
+          }
+          else if (title.get() != null) {
+            showPotemkinProgress(awaitedValue, true)
+          } else {
+            showNiceOverlay(awaitedValue, currentFocusedPane)
+          }
+        } catch (e: Throwable) {
+          logErrorReliably(e)
+          // we still must wait for deferred with the processing of transferred events.
           processInvocationEventsWithoutDialog(awaitedValue, Int.MAX_VALUE)
-        }
-        else if (title.get() != null) {
-          showPotemkinProgress(awaitedValue, true)
-        } else {
-          showNiceOverlay(awaitedValue, currentFocusedPane)
         }
       }
       "Bar", "Overlay" -> showPotemkinProgress(awaitedValue, isBar = value == "Bar")
@@ -209,6 +215,7 @@ object SuvorovProgress {
           niceOverlay.redrawMainComponent()
         }
         stealer.dispatchEvents(0)
+        processAllExistingEventsInEternalStealer()
         stealer.waitForPing(10)
       }
     }
@@ -284,6 +291,7 @@ object SuvorovProgress {
           progress.dispatchAllInvocationEvents()
         }
         progress.interact()
+        processAllExistingEventsInEternalStealer()
         sleep() // avoid touching the progress too much
       }
       while (!awaitedValue.isCompleted)
@@ -307,6 +315,12 @@ object SuvorovProgress {
 
   private fun sleep() {
     Thread.sleep(0, 100_000)
+  }
+
+  private fun processAllExistingEventsInEternalStealer() {
+    @Suppress("ControlFlowWithEmptyBody")
+    while (eternalStealer.dispatchExistingEvent(0, null) != EternalEventStealer.DispatchResult.NO_EVENT_PROCESSED) {
+    }
   }
 }
 
@@ -354,22 +368,58 @@ private class EternalEventStealer(disposable: Disposable) {
       if (deferred.isCompleted) {
         return
       }
-      try {
-        when (val event = specialEvents.poll() ?: specialEvents.poll(toSleep, TimeUnit.MILLISECONDS)) {
-          is TerminalEvent -> {
-            // return only if we get the event for the right id
-            if (event.id == id) {
-              return
-            }
-          }
-          is TransferredWriteActionWrapper -> event.event.execute()
-          null -> Unit
-        }
-      } catch (_ : InterruptedException) {
-        // we still return locking result regardless of interruption
-        Thread.currentThread().interrupt()
+      val dispatchResult = dispatchExistingEvent(toSleep, id)
+      if (dispatchResult == DispatchResult.CAN_RETURN) {
+        return
       }
     }
+  }
+
+  enum class DispatchResult {
+    EVENT_PROCESSED, CAN_RETURN, NO_EVENT_PROCESSED
+  }
+
+  /**
+   * This function is a workaround to a very tricky problem where some events do not reach the EventQueue (IJPL-223355),
+   * resulting in a deadlock because EDT cannot progress without these events.
+   * According to the logs, these events reach [com.intellij.openapi.progress.util.EternalEventStealer],
+   * so we are able to introspect the eternal stealer and execute these events.
+   */
+  fun dispatchExistingEvent(timeoutMillis: Long, terminalId: Int?): DispatchResult {
+    try {
+      return when (val event = specialEvents.poll() ?: specialEvents.poll(timeoutMillis, TimeUnit.MILLISECONDS)) {
+        is TerminalEvent -> {
+          // return only if we get the event for the right id
+          if (event.id == terminalId) {
+            DispatchResult.CAN_RETURN
+          } else {
+            DispatchResult.EVENT_PROCESSED
+          }
+        }
+        is TransferredWriteActionWrapper -> try {
+          event.event.execute()
+          DispatchResult.EVENT_PROCESSED
+        } catch (e: Throwable) {
+          logErrorReliably(e)
+          DispatchResult.EVENT_PROCESSED
+        }
+        null -> {
+          DispatchResult.NO_EVENT_PROCESSED
+        }
+      }
+    } catch (_ : InterruptedException) {
+      // we still return locking result regardless of interruption
+      Thread.currentThread().interrupt()
+      return DispatchResult.EVENT_PROCESSED
+    }
+  }
+}
+
+private fun logErrorReliably(e: Throwable) {
+  try {
+    logger<SuvorovProgress>().error(e)
+  } catch (_ : Throwable) {
+    // protection against rethrowing by logger
   }
 }
 

@@ -1,4 +1,4 @@
-// Copyright 2000-2025 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
+// Copyright 2000-2026 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package com.intellij.xdebugger.impl
 
 import com.intellij.diagnostic.logging.LogConsoleManager
@@ -57,7 +57,6 @@ import com.intellij.xdebugger.frame.XExecutionStack
 import com.intellij.xdebugger.frame.XStackFrame
 import com.intellij.xdebugger.frame.XSuspendContext
 import com.intellij.xdebugger.impl.XDebuggerPerformanceCollector.logBreakpointReached
-import com.intellij.xdebugger.impl.XDebuggerSuspendScopeProvider.provideSuspendScope
 import com.intellij.xdebugger.impl.actions.XDebuggerActions
 import com.intellij.xdebugger.impl.breakpoints.BreakpointsUsageCollector.reportBreakpointVerified
 import com.intellij.xdebugger.impl.breakpoints.CustomizedBreakpointPresentation
@@ -72,6 +71,7 @@ import com.intellij.xdebugger.impl.inline.InlineDebugRenderer
 import com.intellij.xdebugger.impl.mixedmode.XMixedModeCombinedDebugProcess
 import com.intellij.xdebugger.impl.proxy.asProxy
 import com.intellij.xdebugger.impl.rpc.models.XDebugTabLayouterModel
+import com.intellij.xdebugger.impl.rpc.models.XSuspendContextModel
 import com.intellij.xdebugger.impl.rpc.models.storeGlobally
 import com.intellij.xdebugger.impl.settings.XDebuggerSettingManagerImpl
 import com.intellij.xdebugger.impl.ui.*
@@ -85,6 +85,7 @@ import kotlinx.coroutines.flow.*
 import org.jetbrains.annotations.ApiStatus
 import org.jetbrains.annotations.Nls
 import java.util.*
+import java.util.concurrent.atomic.AtomicReference
 import java.util.function.Consumer
 import javax.swing.Icon
 import javax.swing.event.HyperlinkEvent
@@ -116,9 +117,6 @@ class XDebugSessionImpl @JvmOverloads constructor(
   private val myDebuggerManager: XDebuggerManagerImpl = debuggerManager
   private var myBreakpointListenerDisposable: Disposable? = null
 
-  @get:ApiStatus.Internal
-  var currentSuspendCoroutineScope: CoroutineScope? = null
-    private set
   private var myAlternativeSourceHandler: XAlternativeSourceHandler? = null
   private var myIsTopFrame = false
 
@@ -162,7 +160,7 @@ class XDebugSessionImpl @JvmOverloads constructor(
   private val topStackFrame = MutableStateFlow<Ref<XStackFrame>?>(null)
 
   var currentExecutionStack: XExecutionStack? = null
-  private val suspendContextFlow = MutableStateFlow<XSuspendContext?>(null)
+  private val suspendContextModel = AtomicReference<XSuspendContextModel?>(null)
   private val sessionInitializedDeferred = CompletableDeferred<Unit>()
 
   @Volatile
@@ -356,7 +354,17 @@ class XDebugSessionImpl @JvmOverloads constructor(
   }
 
   override fun getSuspendContext(): XSuspendContext? {
-    return suspendContextFlow.value
+    return suspendContextModel.get()?.suspendContext
+  }
+
+  /**
+   * Returns the current [XSuspendContextModel], or `null` if the session is not suspended.
+   *
+   * [XSuspendContextModel] provides [CoroutineScope] that is attached to the current suspension context and [id].
+   */
+  @ApiStatus.Internal
+  fun getSuspendContextModel(): XSuspendContextModel? {
+    return suspendContextModel.get()
   }
 
   override fun getCurrentPosition(): XSourcePosition? {
@@ -886,14 +894,8 @@ class XDebugSessionImpl @JvmOverloads constructor(
   }
 
   private fun clearPausedData() {
-    // If the scope is not provided by an XSuspendContent implementation,
-    // then a default scope, provided by XDebuggerSuspendScopeProvider is used,
-    // and it must be canceled manually
-    if (suspendContext?.coroutineScope != null) {
-      currentSuspendCoroutineScope?.cancel()
-    }
-    currentSuspendCoroutineScope = null
-    suspendContextFlow.value = null
+    val oldSuspendContextModel = suspendContextModel.getAndSet(null)
+    oldSuspendContextModel?.cancel()
     this.currentExecutionStack = null
     currentStackFrame = null
     topStackFrame.value = null
@@ -918,12 +920,20 @@ class XDebugSessionImpl @JvmOverloads constructor(
   }
 
   override fun setCurrentStackFrame(executionStack: XExecutionStack, frame: XStackFrame, isTopFrame: Boolean) {
-    setCurrentStackFrame(executionStack, frame, isTopFrame, false)
+    val currentSuspendContext = suspendContext ?: return
+    setCurrentStackFrame(currentSuspendContext, executionStack, frame, isTopFrame, false)
   }
 
-  @ApiStatus.Experimental
-  fun setCurrentStackFrame(executionStack: XExecutionStack, frame: XStackFrame, isTopFrame: Boolean, changedByUser: Boolean) {
-    if (suspendContext == null) return
+  @ApiStatus.Internal
+  fun setCurrentStackFrame(
+    expectedSuspendContext: XSuspendContext,
+    executionStack: XExecutionStack,
+    frame: XStackFrame,
+    isTopFrame: Boolean,
+    changedByUser: Boolean,
+  ) {
+    val currentContext = suspendContext ?: return
+    if (expectedSuspendContext !== currentContext) return
 
     val frameChanged = currentStackFrame !== frame
     this.currentExecutionStack = executionStack
@@ -1145,8 +1155,10 @@ class XDebugSessionImpl @JvmOverloads constructor(
 
   @ApiStatus.Internal
   fun updateSuspendContext(newSuspendContext: XSuspendContext) {
-    suspendContextFlow.value = newSuspendContext
-    this.currentSuspendCoroutineScope = newSuspendContext.coroutineScope ?: provideSuspendScope(this)
+    val newModel = XSuspendContextModel(coroutineScope, newSuspendContext, this)
+    val oldModel = suspendContextModel.getAndSet(newModel)
+    oldModel?.cancel()
+
     this.currentExecutionStack = newSuspendContext.activeExecutionStack
     val newCurrentStackFrame = currentExecutionStack?.topFrame
     currentStackFrame = newCurrentStackFrame

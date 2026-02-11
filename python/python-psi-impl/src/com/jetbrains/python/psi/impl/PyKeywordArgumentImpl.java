@@ -5,14 +5,18 @@ import com.intellij.lang.ASTNode;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiReference;
 import com.intellij.util.IncorrectOperationException;
-import com.jetbrains.python.psi.*;
+import com.jetbrains.python.psi.LanguageLevel;
+import com.jetbrains.python.psi.PyElementGenerator;
+import com.jetbrains.python.psi.PyElementVisitor;
+import com.jetbrains.python.psi.PyExpression;
+import com.jetbrains.python.psi.PyKeywordArgument;
 import com.jetbrains.python.psi.types.PyType;
 import com.jetbrains.python.psi.types.TypeEvalContext;
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
 
 
-public class PyKeywordArgumentImpl extends PyElementImpl implements PyKeywordArgument, PyWrapperTypeProvider {
+public class PyKeywordArgumentImpl extends PyElementImpl implements PyKeywordArgument {
   public PyKeywordArgumentImpl(ASTNode astNode) {
     super(astNode);
   }

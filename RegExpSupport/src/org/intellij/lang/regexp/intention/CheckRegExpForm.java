@@ -1,4 +1,4 @@
-// Copyright 2000-2025 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
+// Copyright 2000-2026 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package org.intellij.lang.regexp.intention;
 
 import com.intellij.codeInsight.highlighting.HighlightManager;
@@ -201,7 +201,9 @@ public final class CheckRegExpForm {
         final Editor editor = mySampleText.getEditor();
         if (editor == null) return;
         final int offset = editor.getCaretModel().getOffset();
-        highlightSampleGroup(offset, regExpFile);
+        ApplicationManager.getApplication().invokeLater(() -> { // we use invokeLater here to wrap this computation into a write-intent lock
+          highlightSampleGroup(offset, regExpFile);
+        });
       }
     });
 
@@ -293,37 +295,41 @@ public final class CheckRegExpForm {
   }
 
   private void highlightSampleGroup(int offset, @NotNull PsiFile regExpFile) {
-    final HighlightManager highlightManager = HighlightManager.getInstance(regExpFile.getProject());
-    removeHighlights(highlightManager);
+    ReadAction.run(() -> {
+      final HighlightManager highlightManager = HighlightManager.getInstance(regExpFile.getProject());
+      removeHighlights(highlightManager);
 
-    final List<RegExpMatch> matches = getMatches(regExpFile);
-    int index = indexOfGroupAtOffset(matches, offset);
-    if (index > 0) {
-      @Nullable RegExpGroup group =
-        SyntaxTraverser.psiTraverser(regExpFile)
-          .filter(RegExpGroup.class)
-          .filter(RegExpGroup::isCapturing)
-          .get(index - 1);
-      highlightRegExpGroup(group, highlightManager);
-      highlightMatchGroup(highlightManager, matches, index);
-    }
-    else {
-      highlightMatchGroup(highlightManager, matches, 0);
-    }
+      final List<RegExpMatch> matches = getMatches(regExpFile);
+      int index = indexOfGroupAtOffset(matches, offset);
+      if (index > 0) {
+        @Nullable RegExpGroup group =
+          SyntaxTraverser.psiTraverser(regExpFile)
+            .filter(RegExpGroup.class)
+            .filter(RegExpGroup::isCapturing)
+            .get(index - 1);
+        highlightRegExpGroup(group, highlightManager);
+        highlightMatchGroup(highlightManager, matches, index);
+      }
+      else {
+        highlightMatchGroup(highlightManager, matches, 0);
+      }
+    });
   }
 
   private void highlightRegExpGroup(int offset, @NotNull PsiFile regExpFile) {
-    final RegExpGroup group = findCapturingGroupAtOffset(regExpFile, offset);
-    final HighlightManager highlightManager = HighlightManager.getInstance(regExpFile.getProject());
-    removeHighlights(highlightManager);
-    if (group != null) {
-      final int index = SyntaxTraverser.psiTraverser(regExpFile).filter(RegExpGroup.class).indexOf(e -> e == group) + 1;
-      highlightRegExpGroup(group, highlightManager);
-      highlightMatchGroup(highlightManager, getMatches(regExpFile), index);
-    }
-    else {
-      highlightMatchGroup(highlightManager, getMatches(regExpFile), 0);
-    }
+    ReadAction.run(() -> {
+      final RegExpGroup group = findCapturingGroupAtOffset(regExpFile, offset);
+      final HighlightManager highlightManager = HighlightManager.getInstance(regExpFile.getProject());
+      removeHighlights(highlightManager);
+      if (group != null) {
+        final int index = SyntaxTraverser.psiTraverser(regExpFile).filter(RegExpGroup.class).indexOf(e -> e == group) + 1;
+        highlightRegExpGroup(group, highlightManager);
+        highlightMatchGroup(highlightManager, getMatches(regExpFile), index);
+      }
+      else {
+        highlightMatchGroup(highlightManager, getMatches(regExpFile), 0);
+      }
+    });
   }
 
   private static int indexOfGroupAtOffset(List<RegExpMatch> matches, int offset) {
@@ -382,7 +388,7 @@ public final class CheckRegExpForm {
     final PsiElement[] array = {group};
     List<RangeHighlighter> highlighter = new SmartList<>();
     highlightManager.addOccurrenceHighlights(editor, array, RegExpHighlighter.MATCHED_GROUPS, true, highlighter);
-    myRegExpHighlight = highlighter.get(0);
+    myRegExpHighlight = highlighter.getFirst();
   }
 
   private void removeHighlights(HighlightManager highlightManager) {

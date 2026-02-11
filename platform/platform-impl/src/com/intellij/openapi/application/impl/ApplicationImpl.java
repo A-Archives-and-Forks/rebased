@@ -1,4 +1,4 @@
-// Copyright 2000-2025 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
+// Copyright 2000-2026 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package com.intellij.openapi.application.impl;
 
 import com.intellij.CommonBundle;
@@ -56,7 +56,6 @@ import com.intellij.util.concurrency.*;
 import com.intellij.util.containers.ContainerUtil;
 import com.intellij.util.messages.Topic;
 import com.intellij.util.ui.EDT;
-import kotlin.Pair;
 import kotlin.Unit;
 import kotlin.coroutines.CoroutineContext;
 import kotlin.jvm.functions.Function0;
@@ -563,8 +562,7 @@ public final class ApplicationImpl extends ClientAwareComponentManager implement
     // Start from inner layer: transaction guard
     final var guarded = myTransactionGuard.wrapLaterInvocation(runnable, state);
     // Middle layer: lock and modality
-    boolean wrapWithLocksDeep = wrapWithLocks && !ThreadingRuntimeFlagsKt.getUseNonBlockingFlushQueue();
-    final var locked = wrapWithRunIntendedWriteActionAndModality(guarded, wrapWithLocksDeep, ctxAware ? null : state);
+    final var locked = wrapWithRunIntendedWriteActionAndModality(guarded, false, ctxAware ? null : state);
     // Outer layer context capture & reset
     final var finalRunnable = AppImplKt.rethrowExceptions(AppScheduledExecutorService::captureContextCancellationForRunnableThatDoesNotOutliveContextScope, locked);
 
@@ -1107,19 +1105,8 @@ public final class ApplicationImpl extends ClientAwareComponentManager implement
     });
   }
 
-  private static void checkWriteActionAllowedOnCurrentThread() {
-    if (EDT.isCurrentThreadEdt()) {
-      return;
-    }
-    if (!InternalThreading.isBackgroundWriteActionAllowed()) {
-      throw new IllegalStateException(
-        "Background write action is not permitted on this thread. Consider using `backgroundWriteAction`, or switch to EDT");
-    }
-  }
-
   @Override
   public void runWriteAction(@NotNull Runnable action) {
-    checkWriteActionAllowedOnCurrentThread();
     incrementBackgroundWriteActionCounter();
     try {
       getThreadingSupport().runWriteActionBlocking(runnableUnitFunction(action));
@@ -1131,7 +1118,6 @@ public final class ApplicationImpl extends ClientAwareComponentManager implement
 
   @Override
   public <T> T runWriteAction(@NotNull Computable<T> computation) {
-    checkWriteActionAllowedOnCurrentThread();
     incrementBackgroundWriteActionCounter();
     try {
       return getThreadingSupport().runWriteActionBlocking(computation::compute);
@@ -1143,7 +1129,6 @@ public final class ApplicationImpl extends ClientAwareComponentManager implement
 
   @Override
   public <T, E extends Throwable> T runWriteAction(@NotNull ThrowableComputable<T, E> computation) throws E {
-    checkWriteActionAllowedOnCurrentThread();
     incrementBackgroundWriteActionCounter();
     try {
       return getThreadingSupport().runWriteActionBlocking(rethrowCheckedExceptions(computation));

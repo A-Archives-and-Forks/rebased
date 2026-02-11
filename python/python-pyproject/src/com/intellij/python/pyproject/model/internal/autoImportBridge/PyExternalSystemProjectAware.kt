@@ -1,24 +1,30 @@
 package com.intellij.python.pyproject.model.internal.autoImportBridge
 
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.writeAction
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.fileLogger
-import com.intellij.openapi.externalSystem.autoimport.*
+import com.intellij.openapi.externalSystem.autoimport.ExternalSystemProjectAware
+import com.intellij.openapi.externalSystem.autoimport.ExternalSystemProjectId
+import com.intellij.openapi.externalSystem.autoimport.ExternalSystemProjectListener
+import com.intellij.openapi.externalSystem.autoimport.ExternalSystemProjectReloadContext
+import com.intellij.openapi.externalSystem.autoimport.ExternalSystemRefreshStatus
 import com.intellij.openapi.externalSystem.model.ProjectSystemId
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.progress.runBlockingMaybeCancellable
 import com.intellij.openapi.project.Project
 import com.intellij.platform.backend.observation.launchTracked
 import com.intellij.project.stateStore
-import com.intellij.python.pyproject.model.api.ModelRebuiltListener
 import com.intellij.python.pyproject.model.internal.PyProjectTomlBundle
+import com.intellij.python.pyproject.model.internal.notifyModelRebuilt
 import com.intellij.python.pyproject.model.internal.pyProjectToml.walkFileSystemNoTomlContent
 import com.intellij.python.pyproject.model.internal.pyProjectToml.walkFileSystemWithTomlContent
 import com.intellij.python.pyproject.model.internal.workspaceBridge.rebuildProjectModel
 import com.intellij.util.concurrency.annotations.RequiresBackgroundThread
 import com.intellij.util.messages.Topic
+import com.intellij.util.ui.EDT
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,14 +45,23 @@ class PyExternalSystemProjectAware private constructor(
 
   @get:RequiresBackgroundThread
   override val settingsFiles: Set<String>
-    get() = runBlockingMaybeCancellable {
-      // We do not need file content: only names here.
-      val fsInfo = walkFileSystemNoTomlContent(projectRootDir).getOr {
-        // Dir can't be accessed
-        log.trace(it.error)
-        return@runBlockingMaybeCancellable emptySet()
+    get() {
+      if (EDT.isCurrentThreadEdt() && ApplicationManager.getApplication().isUnitTestMode) {
+        // Some tests are broken and access it from EDT.
+        // Since `@RequiresBackgroundThread` doesn't work for Kotlin, we can't check it in advance.
+        // This part will be rewritten soon anyway, so for now enjoy workaround
+        log.warn("Access from EDT, settingsFiles are empty")
+        return emptySet()
       }
-      return@runBlockingMaybeCancellable fsInfo.rawTomlFiles.map { it.pathString }.toSet()
+      return runBlockingMaybeCancellable {
+        // We do not need file content: only names here.
+        val fsInfo = walkFileSystemNoTomlContent(projectRootDir).getOr {
+          // Dir can't be accessed
+          log.trace(it.error)
+          return@runBlockingMaybeCancellable emptySet()
+        }
+        return@runBlockingMaybeCancellable fsInfo.rawTomlFiles.map { it.pathString }.toSet()
+      }
     }
 
   override fun subscribe(listener: ExternalSystemProjectListener, parentDisposable: Disposable) {
@@ -79,10 +94,8 @@ class PyExternalSystemProjectAware private constructor(
         }
         rebuildProjectModel(project, files)
         this.onProjectReloadFinish(ExternalSystemRefreshStatus.SUCCESS)
-        // Even though we have no entities, we still "rebuilt" the model
-        withContext(Dispatchers.Default) {
-          project.messageBus.syncPublisher(MODEL_REBUILD).modelRebuilt(project)
-        }
+        // Even though we have no entities, we still "rebuilt" the model, time to configure SDK
+        notifyModelRebuilt(project)
       }
       catch (e: CancellationException) {
         this.onProjectReloadFinish(ExternalSystemRefreshStatus.CANCEL)
@@ -121,8 +134,6 @@ class PyExternalSystemProjectAware private constructor(
 private val PROJECT_AWARE_TOPIC: Topic<ExternalSystemProjectListener> =
   Topic(ExternalSystemProjectListener::class.java, Topic.BroadcastDirection.NONE)
 
-@Topic.ProjectLevel
-internal val MODEL_REBUILD: Topic<ModelRebuiltListener> = Topic(ModelRebuiltListener::class.java, Topic.BroadcastDirection.NONE)
 
 @Service(Service.Level.PROJECT)
 private class PyExternalSystemProjectAwareService(val scope: CoroutineScope)

@@ -5,7 +5,7 @@ import com.intellij.execution.RunContentDescriptorIdImpl
 import com.intellij.execution.rpc.ProcessHandlerDto
 import com.intellij.ide.rpc.AnActionId
 import com.intellij.ide.rpc.FrontendDocumentId
-import com.intellij.ide.rpc.util.TextRangeId
+import com.intellij.ide.rpc.util.TextRangeDto
 import com.intellij.ide.ui.icons.IconId
 import com.intellij.openapi.util.NlsContexts
 import com.intellij.openapi.util.NlsSafe
@@ -56,7 +56,13 @@ interface XDebugSessionApi : RemoteApi<Unit> {
 
   suspend fun triggerUpdate(sessionId: XDebugSessionId)
 
-  suspend fun setCurrentStackFrame(sessionId: XDebugSessionId, executionStackId: XExecutionStackId, frameId: XStackFrameId, isTopFrame: Boolean, changedByUser: Boolean = false)
+  suspend fun setCurrentStackFrame(
+    sessionId: XDebugSessionId,
+    suspendContextId: XSuspendContextId,
+    executionStackId: XExecutionStackId,
+    frameId: XStackFrameId,
+    isTopFrame: Boolean,
+  )
 
   suspend fun computeExecutionStacks(suspendContextId: XSuspendContextId): Flow<XExecutionStacksEvent>
 
@@ -94,6 +100,9 @@ data class XDebugSessionDto(
   val restartActions: List<AnActionId>,
   val extraActions: List<AnActionId>,
   val extraStopActions: List<AnActionId>,
+  val leftToolbarActions: List<AnActionId>,
+  val topToolbarActions: List<AnActionId>,
+  val settingsActions: List<AnActionId>,
 )
 
 @ApiStatus.Internal
@@ -178,12 +187,12 @@ data class XSmartStepIntoHandlerDto(
 @ApiStatus.Internal
 @Serializable
 data class XSmartStepIntoTargetDto(
-  val id: XSmartStepIntoTargetId,
-  val iconId: IconId?,
-  val text: @NlsSafe String,
-  val description: @Nls String?,
-  val textRange: TextRangeId?,
-  val needsForcedSmartStepInto: Boolean,
+    val id: XSmartStepIntoTargetId,
+    val iconId: IconId?,
+    val text: @NlsSafe String,
+    val description: @Nls String?,
+    val textRange: TextRangeDto?,
+    val needsForcedSmartStepInto: Boolean,
 )
 
 @ApiStatus.Internal

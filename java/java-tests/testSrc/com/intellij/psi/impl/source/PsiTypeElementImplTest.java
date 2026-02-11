@@ -1,7 +1,11 @@
 // Copyright 2000-2025 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package com.intellij.psi.impl.source;
 
-import com.intellij.psi.*;
+import com.intellij.openapi.application.WriteAction;
+import com.intellij.psi.PsiAnnotation;
+import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiType;
+import com.intellij.psi.PsiTypeElement;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.testFramework.LightJavaCodeInsightTestCase;
 import com.intellij.util.containers.ContainerUtil;
@@ -14,6 +18,58 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @NotNullByDefault
 public class PsiTypeElementImplTest extends LightJavaCodeInsightTestCase {
+
+  public void testAddAnnotationToSimpleType() {
+    doTestAddingAnnotationToTypeAtCaret(
+      """
+        class AClass {
+          public <caret>String foo;
+        }
+        """);
+  }
+
+  public void testAddAnnotationToArrayType() {
+    doTestAddingAnnotationToTypeAtCaret(
+      """
+        class AClass {
+          public String <caret>[] foo;
+        }
+        """);
+  }
+
+  public void testAddAnnotationToMultidimensionalArrayType() {
+    doTestAddingAnnotationToTypeAtCaret(
+      """
+        class AClass {
+          public String <caret>[][] foo;
+        }
+        """);
+  }
+
+  public void testAddAnnotationToVarargsType() {
+    doTestAddingAnnotationToTypeAtCaret(
+      """
+        class AClass {
+          public String foo(String <caret>... param);
+        }
+        """);
+  }
+
+  public void testAddAnnotationToVarargsTypeWithArrayElement() {
+    doTestAddingAnnotationToTypeAtCaret(
+      """
+        class AClass {
+          public String foo(String <caret>[]... param);
+        }
+        """);
+  }
+
+  private void doTestAddingAnnotationToTypeAtCaret(String classFile) {
+    configureFromFileWithMyAnnotationAdded(classFile);
+    PsiTypeElement typeElement = getPsiTypeElementAtCaret();
+    WriteAction.run(() -> typeElement.addAnnotation("MyAnnotation"));
+    assertTypeAnnotations(typeElement.getType(), "MyAnnotation");
+  }
 
   public void testTypeUseAnnotationOnMethodThatReturnsSimpleTypeIsAppliedToThatType() {
     configureFromFileWithMyAnnotationAdded(

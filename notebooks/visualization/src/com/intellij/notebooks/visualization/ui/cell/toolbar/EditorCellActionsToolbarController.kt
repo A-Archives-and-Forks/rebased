@@ -14,16 +14,23 @@ import com.intellij.notebooks.visualization.ui.jupyterToolbars.JupyterCellAction
 import com.intellij.notebooks.visualization.ui.notebookEditor
 import com.intellij.notebooks.visualization.ui.providers.bounds.JupyterBoundsChangeHandler
 import com.intellij.openapi.actionSystem.ActionGroup
-import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ex.ActionUtil
 import com.intellij.openapi.application.EDT
 import com.intellij.openapi.util.Disposer
 import com.intellij.platform.util.coroutines.childScope
+import com.intellij.ui.components.JBScrollPane
 import com.intellij.util.PlatformUtils
 import com.intellij.util.cancelOnDispose
 import com.intellij.util.ui.JBUI
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.intellij.lang.annotations.Language
 import java.awt.Point
 import java.awt.Rectangle
@@ -31,6 +38,7 @@ import java.time.Duration
 import javax.swing.JComponent
 import javax.swing.SwingUtilities
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.time.toKotlinDuration
 
 /** Position of the floating toolbar in cells top right corner. */
@@ -155,12 +163,12 @@ internal class EditorCellActionsToolbarController(
     }
     CellType.MARKDOWN -> {
       hideDropdownIcon(ADDITIONAL_MARKDOWN_ELLIPSIS_ACTION_GROUP_ID)
-      ActionManager.getInstance().getAction(ADDITIONAL_MARKDOWN_ACTION_GROUP_ID) as? ActionGroup
+      ActionUtil.getActionGroup(ADDITIONAL_MARKDOWN_ACTION_GROUP_ID)
     }
     CellType.RAW -> null
   }
 
-  private fun hideDropdownIcon(actionGroupId: String) = ActionManager.getInstance().getAction(actionGroupId)
+  private fun hideDropdownIcon(actionGroupId: String) = ActionUtil.getAction(actionGroupId)!!
     .templatePresentation
     .putClientProperty(ActionUtil.HIDE_DROPDOWN_ICON, true)
 
@@ -178,22 +186,35 @@ internal class EditorCellActionsToolbarController(
 
     val panelRoofHeight = panelHeight - delimiterSize
 
-    val xOffset = (panelWidth - toolbarWidth - (panelWidth * RELATIVE_Y_OFFSET_RATIO)).toInt()
+    val xOffset = panelWidth - toolbarWidth - (panelWidth * RELATIVE_Y_OFFSET_RATIO).toInt()
     val yOffset = panelHeight - panelRoofHeight - (toolbarHeight / 2)
 
     val panelLocationInEditor = SwingUtilities.convertPoint(panel, Point(0, 0), editor.contentComponent)
 
     val xCoordinate = panelLocationInEditor.x + xOffset
-    val yCoordinate = panelLocationInEditor.y + yOffset
+    var yCoordinate = panelLocationInEditor.y + yOffset
 
-    val correctedY = if (NotebookSettings.getInstance().cellToolbarStickyVisible) {
-      max(yCoordinate, editor.contentComponent.visibleRect.y + JBUI.scale(2))
-    }
-    else {
-      yCoordinate
+    // We have StickyLinesPanel - to show current class/method. This panel has a full-editor width.
+    if (NotebookSettings.getInstance().cellToolbarStickyVisible) {
+      yCoordinate = max(yCoordinate, editor.contentComponent.visibleRect.y + JBUI.scale(2) + editor.stickyLinesPanelHeight)
+
+      val bounds = cell.view?.calculateBounds()
+      if (bounds != null) {
+        yCoordinate = min(yCoordinate, bounds.y + bounds.height - toolbarHeight - JBUI.scale(4))
+      }
     }
 
-    return Rectangle(xCoordinate, correctedY, toolbarWidth, toolbarHeight)
+    val result =  Rectangle(xCoordinate, yCoordinate, toolbarWidth, toolbarHeight)
+
+    // We have also EditorInspectionsActionToolbar in the top right editor corner, and we want to protect from overlap.
+    val statusComponent = (editor.scrollPane as? JBScrollPane)?.statusComponent
+    if (statusComponent != null) {
+      if(result.intersects(statusComponent.bounds.apply { y += editor.contentComponent.visibleRect.y })) {
+        result.y += statusComponent.height
+      }
+    }
+
+    return result
   }
 
   companion object {

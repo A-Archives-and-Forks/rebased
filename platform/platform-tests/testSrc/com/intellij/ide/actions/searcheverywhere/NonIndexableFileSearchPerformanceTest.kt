@@ -8,12 +8,14 @@ import com.intellij.openapi.application.readAction
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.newvfs.NewVirtualFile
+import com.intellij.testFramework.PerformanceUnitTest
 import com.intellij.testFramework.TestActionEvent
 import com.intellij.testFramework.junit5.RegistryKey
 import com.intellij.testFramework.junit5.StressTestApplication
 import com.intellij.testFramework.rules.ProjectModelExtension
 import com.intellij.testFramework.runInEdtAndWait
-import com.intellij.tools.ide.metrics.benchmark.Benchmark
+import com.intellij.tools.ide.metrics.benchmark.Benchmark.newBenchmark
+import com.intellij.tools.ide.metrics.benchmark.Benchmark.newBenchmarkWithVariableInputSize
 import com.intellij.workspaceModel.core.fileIndex.WorkspaceFileIndex
 import com.intellij.workspaceModel.ide.registerProjectRootBlocking
 import kotlinx.coroutines.runBlocking
@@ -28,7 +30,8 @@ import kotlin.io.path.Path
  */
 @StressTestApplication
 @RegistryKey(key = "se.enable.non.indexable.files.contributor", value = "true")
-class NonIndexableFileSearchPerformanceTest {
+@PerformanceUnitTest
+open class NonIndexableFileSearchPerformanceTest {
   @RegisterExtension
   private val projectModel: ProjectModelExtension = ProjectModelExtension()
 
@@ -52,55 +55,64 @@ class NonIndexableFileSearchPerformanceTest {
 
   @BeforeEach
   fun createNonIndexableFileset(): Unit = runBlocking {
-      Assumptions.assumeTrue(project.isOpen)
+    Assumptions.assumeTrue(project.isOpen)
 
-      runInEdtAndWait { registerProjectRootBlocking(project, communityPath) }
+    runInEdtAndWait { registerProjectRootBlocking(project, communityPath) }
 
-      Assumptions.assumeTrue(readAction { workspaceFileIndex.isInContent(communityVirtualFile) }) {
-          "project root must be in content"
-      }
-      Assumptions.assumeFalse(readAction { workspaceFileIndex.isIndexable(communityVirtualFile) }) {
-          "project root must be non-indexable"
-      }
+    Assumptions.assumeTrue(readAction { workspaceFileIndex.isInContent(communityVirtualFile) }) {
+      "project root must be in content"
+    }
+    Assumptions.assumeFalse(readAction { workspaceFileIndex.isIndexable(communityVirtualFile) }) {
+      "project root must be non-indexable"
+    }
   }
 
   @Test
-  fun `iterate over all files`(): Unit = runBlocking {
-      val searchPattern = "ProjectRootEntity"
-      val contributor = createContributor()
-      Benchmark.newBenchmarkWithVariableInputSize("search \"$searchPattern\"", nonIndexableFilesCount) {
-          contributor.search(searchPattern, MockProgressIndicator())
-          nonIndexableFilesCount
-      }.start()
+  fun `iterate over all files`() {
+    val searchPattern = "ProjectRootEntity"
+    val contributor = createContributor()
+    newBenchmarkWithVariableInputSize("search \"$searchPattern\"", nonIndexableFilesCount) {
+      contributor.search(searchPattern, MockProgressIndicator())
+      nonIndexableFilesCount
+    }.start()
   }
 
   @Test
-  fun `search for one file deep inside`(): Unit = runBlocking {
-      val searchPattern = "ProjectRootEntity"
-      val contributor = createContributor()
-      Benchmark.newBenchmarkWithVariableInputSize("search \"$searchPattern\"", nonIndexableFilesCount) {
-          contributor.search(searchPattern, MockProgressIndicator(), 1)
-          nonIndexableFilesCount
-      }.start()
+  fun `search for one file deep inside`() {
+    val searchPattern = "ProjectRootEntity"
+    val contributor = createContributor()
+    newBenchmarkWithVariableInputSize("search \"$searchPattern\"", nonIndexableFilesCount) {
+      // elementsLimit = 0, so when the first matching file is found, the search stops.
+      // Because it actually searches for `elementsLimit + 1` files
+      val elementsLimit = 0
+      contributor.search(searchPattern, MockProgressIndicator(), elementsLimit)
+      nonIndexableFilesCount
+    }.start()
   }
 
   @Test
-  fun `search for one last root child`(): Unit = runBlocking {
-      val filename = communityVirtualFile.getChildren(true).last().name
-      val contributor = createContributor()
-      Benchmark.newBenchmarkWithVariableInputSize("search \"$filename\"", nonIndexableFilesCount) {
-          contributor.search(filename, MockProgressIndicator(), 1)
-          nonIndexableFilesCount
-      }.start()
+  fun `search for one last root child`() {
+    val filename = communityVirtualFile.getChildren(true).last().name
+    val contributor = createContributor()
+    newBenchmarkWithVariableInputSize("search \"$filename\"", nonIndexableFilesCount) {
+      // elementsLimit = 0, so when the first matching file is found, the search stops.
+      // Because it actually searches for `elementsLimit + 1` files
+      val elementsLimit = 0
+      contributor.search(filename, MockProgressIndicator(), elementsLimit)
+      nonIndexableFilesCount
+    }.start()
   }
 
   @Test
-  fun `search for the first root child`(): Unit = runBlocking {
-      val filename = communityVirtualFile.getChildren(true).first().name
-      val contributor = createContributor()
-      Benchmark.newBenchmark("search \"$filename\"") {
-          contributor.search(filename, MockProgressIndicator(), 1)
-      }.start()
+  fun `search for the first root child`() {
+    val filename = communityVirtualFile.getChildren(true).first().name
+    val contributor = createContributor()
+    newBenchmark("search \"$filename\"") {
+      // elementsLimit = 0, so when the first matching file is found, the search stops.
+      // Because it actually searches for `elementsLimit + 1` files
+      val elementsLimit = 0
+      contributor.search(filename, MockProgressIndicator(), elementsLimit)
+    }.start()
   }
 
 

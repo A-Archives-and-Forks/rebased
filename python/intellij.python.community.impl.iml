@@ -4,7 +4,7 @@
     <facet type="kotlin-language" name="Kotlin">
       <configuration version="5" platform="JVM 21" allPlatforms="JVM [21]" useProjectSettings="false">
         <compilerSettings>
-          <option name="additionalArguments" value="-Xjvm-default=all -XXLanguage:+AllowEagerSupertypeAccessibilityChecks" />
+          <option name="additionalArguments" value="-Xjvm-default=all -XXLanguage:+AllowEagerSupertypeAccessibilityChecks -progressive" />
         </compilerSettings>
         <compilerArguments>
           <stringArguments>
@@ -173,7 +173,7 @@
     <orderEntry type="module" module-name="intellij.python.community.impl.installer" />
     <orderEntry type="module" module-name="intellij.platform.eel" />
     <orderEntry type="module" module-name="intellij.platform.eel.provider" />
-    <orderEntry type="module" module-name="intellij.python.community.impl.venv" />
+    <orderEntry type="module" module-name="intellij.python.venv" />
     <orderEntry type="module" module-name="intellij.python.community.execService" />
     <orderEntry type="module" module-name="intellij.python.community.services.systemPython" />
     <orderEntry type="module" module-name="intellij.python.community.services.internal.impl" />

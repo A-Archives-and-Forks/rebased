@@ -1,11 +1,23 @@
 // Copyright 2000-2024 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package org.jetbrains.plugins.github.pullrequest.ui.diff
 
-import com.intellij.collaboration.async.*
+import com.intellij.collaboration.async.collectScoped
+import com.intellij.collaboration.async.combineStateIn
+import com.intellij.collaboration.async.flatMapLatestEach
+import com.intellij.collaboration.async.launchNow
+import com.intellij.collaboration.async.mapState
+import com.intellij.collaboration.async.mapStatefulToStateful
+import com.intellij.collaboration.async.stateFlowOf
+import com.intellij.collaboration.async.stateInNow
 import com.intellij.collaboration.ui.codereview.diff.DiffLineLocation
 import com.intellij.collaboration.ui.codereview.diff.UnifiedCodeReviewItemPosition
 import com.intellij.collaboration.ui.codereview.diff.viewer.showCodeReview
-import com.intellij.collaboration.ui.codereview.editor.*
+import com.intellij.collaboration.ui.codereview.editor.CodeReviewActiveRangesTracker
+import com.intellij.collaboration.ui.codereview.editor.CodeReviewCommentableEditorModel
+import com.intellij.collaboration.ui.codereview.editor.CodeReviewEditorGutterControlsModel
+import com.intellij.collaboration.ui.codereview.editor.CodeReviewEditorInlayRangeOutlineUtils
+import com.intellij.collaboration.ui.codereview.editor.CodeReviewEditorModel
+import com.intellij.collaboration.ui.codereview.editor.CodeReviewNavigableEditorViewModel
 import com.intellij.collaboration.util.Hideable
 import com.intellij.collaboration.util.RefComparisonChange
 import com.intellij.collaboration.util.syncOrToggleAll
@@ -19,15 +31,21 @@ import com.intellij.diff.util.Range
 import com.intellij.diff.util.Side
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
+import com.intellij.openapi.project.Project
 import com.intellij.platform.util.coroutines.childScope
 import com.intellij.util.cancelOnDispose
 import com.intellij.util.concurrency.annotations.RequiresEdt
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import org.jetbrains.plugins.github.ai.GHPRAICommentViewModel
+import org.jetbrains.plugins.github.pullrequest.GHPRStatisticsCollector
 import org.jetbrains.plugins.github.pullrequest.ui.comment.GHPRCompactReviewThreadViewModel
 import org.jetbrains.plugins.github.pullrequest.ui.comment.GHPRReviewCommentLocation
 import org.jetbrains.plugins.github.pullrequest.ui.comment.lineLocation
@@ -37,7 +55,7 @@ import org.jetbrains.plugins.github.pullrequest.ui.editor.GHPRReviewEditorGutter
 import org.jetbrains.plugins.github.pullrequest.ui.editor.GHPRReviewNewCommentEditorViewModel
 import org.jetbrains.plugins.github.pullrequest.ui.editor.createRenderer
 import org.jetbrains.plugins.github.util.GithubSettings
-import java.util.*
+import java.util.UUID
 
 internal class GHPRReviewDiffExtension : DiffExtension() {
   override fun onViewerCreated(viewer: FrameDiffTool.DiffViewer, context: DiffContext, request: DiffRequest) {
@@ -52,7 +70,7 @@ internal class GHPRReviewDiffExtension : DiffExtension() {
   }
 
   @Service(Service.Level.PROJECT)
-  private class InlaysController(parentCs: CoroutineScope) {
+  private class InlaysController(private val project: Project, parentCs: CoroutineScope) {
     private val cs = parentCs.childScope(javaClass.name, Dispatchers.Main)
 
     fun installInlays(reviewVm: GHPRDiffViewModel, change: RefComparisonChange, viewer: DiffViewerBase) {
@@ -71,7 +89,7 @@ internal class GHPRReviewDiffExtension : DiffExtension() {
             viewer.showCodeReview { editor, _, locationToLine, lineToLocation, lineToUnified ->
               coroutineScope {
                 val cs = this
-                val model = DiffEditorModel(cs, reviewVm, changeVm, locationToLine, lineToLocation) {
+                val model = DiffEditorModel(cs, project, reviewVm, changeVm, locationToLine, lineToLocation) {
                   val (leftLine, rightLine) = lineToUnified(it)
                   UnifiedCodeReviewItemPosition(change, leftLine, rightLine)
                 }
@@ -98,6 +116,7 @@ internal interface GHPRReviewDiffEditorModel : CodeReviewEditorModel<GHPREditorM
 
 private class DiffEditorModel(
   cs: CoroutineScope,
+  private val project: Project,
   private val reviewVm: GHPRDiffViewModel,
   private val diffVm: GHPRDiffReviewViewModel,
   private val locationToLine: (DiffLineLocation) -> Int?,
@@ -195,6 +214,7 @@ private class DiffEditorModel(
 
   override fun toggleComments(lineIdx: Int) {
     inlays.value.asSequence().filter { it.line.value == lineIdx }.filterIsInstance<Hideable>().syncOrToggleAll()
+    GHPRStatisticsCollector.logToggledComments(project)
   }
 
   override val canNavigate: Boolean get() = diffVm.canNavigate

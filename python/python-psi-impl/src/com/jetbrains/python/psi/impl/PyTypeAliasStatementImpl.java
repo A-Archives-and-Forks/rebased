@@ -7,7 +7,13 @@ import com.intellij.util.IncorrectOperationException;
 import com.jetbrains.python.PyStubElementTypes;
 import com.jetbrains.python.codeInsight.controlflow.ControlFlowCache;
 import com.jetbrains.python.codeInsight.typing.PyTypingTypeProvider;
-import com.jetbrains.python.psi.*;
+import com.jetbrains.python.psi.PyClass;
+import com.jetbrains.python.psi.PyElementVisitor;
+import com.jetbrains.python.psi.PyExpression;
+import com.jetbrains.python.psi.PyPsiFacade;
+import com.jetbrains.python.psi.PyTypeAliasStatement;
+import com.jetbrains.python.psi.PyTypeParameterList;
+import com.jetbrains.python.psi.PyUtil;
 import com.jetbrains.python.psi.resolve.QualifiedNameFinder;
 import com.jetbrains.python.psi.stubs.PyTypeAliasStatementStub;
 import com.jetbrains.python.psi.types.PyClassTypeImpl;
@@ -16,8 +22,7 @@ import com.jetbrains.python.psi.types.TypeEvalContext;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class PyTypeAliasStatementImpl extends PyBaseElementImpl<PyTypeAliasStatementStub>
-  implements PyTypeAliasStatement, PyInstantTypeProvider {
+public class PyTypeAliasStatementImpl extends PyBaseElementImpl<PyTypeAliasStatementStub> implements PyTypeAliasStatement {
   public PyTypeAliasStatementImpl(ASTNode astNode) {
     super(astNode);
   }

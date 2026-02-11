@@ -3,6 +3,7 @@ package git4idea.workingTrees
 
 import com.intellij.openapi.ui.getPresentablePath
 import com.intellij.openapi.vcs.LocalFilePath
+import com.intellij.testFramework.utils.io.deleteRecursively
 import com.intellij.vcs.git.repo.GitRepositoriesHolder
 import git4idea.GitWorkingTree
 import git4idea.actions.workingTree.GitWorkingTreeDialog
@@ -12,6 +13,7 @@ import git4idea.commands.GitLineHandler
 import git4idea.test.GitSingleRepoTest
 import git4idea.test.registerRepo
 import git4idea.workingTrees.GitWorkingTreeTestBase.Companion.createBranch
+import git4idea.workingTrees.GitWorkingTreeTestBase.Companion.ensureWorkingTreesUpToDateForTests
 import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.nio.file.Paths
@@ -47,7 +49,7 @@ class GitCreateWorkingTreeTest : GitSingleRepoTest() {
     createBranch(repo, branch)
     val holder = GitRepositoriesHolder.getInstance(project)
     runBlocking {
-      holder.init()
+      holder.awaitInitialization()
     }
 
     val workingTreePath = LocalFilePath(testNioRoot.resolve(treeRoot).toString(), true)
@@ -69,7 +71,7 @@ class GitCreateWorkingTreeTest : GitSingleRepoTest() {
     assertNull("Current branch is should be null, got ${workingTreeRepo.currentBranchName} instead",
                workingTreeRepo.currentBranchName)
 
-    repo.workingTreeHolder.ensureUpToDateForTests()
+    repo.ensureWorkingTreesUpToDateForTests()
     val workingTrees = repo.workingTreeHolder.getWorkingTrees()
     val expected = listOf(
       GitWorkingTree(repo.root.path,
@@ -78,6 +80,72 @@ class GitCreateWorkingTreeTest : GitSingleRepoTest() {
       GitWorkingTree("${testNioRoot.pathString}/$treeRoot",
                      null,
                      false, false)
+    )
+
+    assertSameElements(workingTrees, expected)
+  }
+
+  fun `test listing locked working tree`() {
+    val branch = "tree"
+    val treeRoot = "treeRoot"
+
+    git("worktree add -B $branch ../$treeRoot")
+    git("worktree lock ../$treeRoot")
+
+    repo.ensureWorkingTreesUpToDateForTests()
+    val workingTrees = repo.workingTreeHolder.getWorkingTrees()
+    val expected = listOf(
+      GitWorkingTree(repo.root.path,
+                     repo.currentBranch!!.fullName,
+                     true, true),
+      GitWorkingTree("${testNioRoot.pathString}/$treeRoot",
+                     branch,
+                     false, false,
+                     isLocked = true)
+    )
+
+    assertSameElements(workingTrees, expected)
+  }
+
+  fun `test listing locked with a reason working tree`() {
+    val branch = "tree"
+    val treeRoot = "treeRoot"
+
+    git("worktree add -B $branch ../$treeRoot")
+    git("worktree lock --reason Because ../$treeRoot")
+
+    repo.ensureWorkingTreesUpToDateForTests()
+    val workingTrees = repo.workingTreeHolder.getWorkingTrees()
+    val expected = listOf(
+      GitWorkingTree(repo.root.path,
+                     repo.currentBranch!!.fullName,
+                     true, true),
+      GitWorkingTree("${testNioRoot.pathString}/$treeRoot",
+                     branch,
+                     false, false,
+                     isLocked = true)
+    )
+
+    assertSameElements(workingTrees, expected)
+  }
+
+  fun `test listing prunable working tree`() {
+    val branch = "tree"
+    val treeRoot = "treeRoot"
+
+    git("worktree add -B $branch ../$treeRoot")
+    testNioRoot.resolve(treeRoot).deleteRecursively()
+
+    repo.ensureWorkingTreesUpToDateForTests()
+    val workingTrees = repo.workingTreeHolder.getWorkingTrees()
+    val expected = listOf(
+      GitWorkingTree(repo.root.path,
+                     repo.currentBranch!!.fullName,
+                     true, true),
+      GitWorkingTree("${testNioRoot.pathString}/$treeRoot",
+                     branch,
+                     false, false,
+                     isPrunable = true)
     )
 
     assertSameElements(workingTrees, expected)

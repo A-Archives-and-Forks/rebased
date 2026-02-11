@@ -94,10 +94,8 @@
     <registryKey defaultValue="true" description="Use EEL for file watching." key="use.eel.file.watcher" restartRequired="true"/>
     <registryKey defaultValue="true" key="cache.nulls.for.pushed.properties" restartRequired="true"
                  description="Cache null values for pushed properties to avoid reading nulls from disk every time."/>
-    <registryKey defaultValue="false" key="use.workspace.model.for.calculation.library.scope"
+    <registryKey defaultValue="true" key="use.workspace.model.for.calculation.library.scope"
                  description="Calculation of LibraryScopeCache using WorkspaceModel entities"/>
-    <registryKey defaultValue="false" key="search.in.non.indexable" restartRequired="false"
-                 description="Search files in non-indexable filesets with NonIndexableFileNavigationContributor"/>
     <registryKey defaultValue="true" key="se.enable.non.indexable.files.contributor" restartRequired="false"
                  description="Search files in non-indexable filesets with NonIndexableFilesSEContributor"/>
     <registryKey defaultValue="false"
@@ -698,7 +696,6 @@
 
     <searchEverywhereClassifier implementation="com.intellij.ide.actions.DefaultSearchEverywhereClassifier"/>
     <gotoFileContributor implementation="com.intellij.ide.util.gotoByName.DefaultFileNavigationContributor"/>
-    <gotoFileContributor implementation="com.intellij.ide.util.gotoByName.NonIndexableFileNavigationContributor"/>
     <gotoRelatedProvider implementation="com.intellij.ide.actions.RelatedItemLineMarkerGotoAdapter"/>
 
     <selectInTarget implementation="com.intellij.ide.impl.ProjectViewSelectInGroupTarget"/>
@@ -997,6 +994,10 @@
                  key="ide.project.view.show.new.element.button" />
     <registryKey defaultValue="[Off|RemDev*|On]" description="Show the new file or directory button in the project view title"
                  key="ide.project.view.preload.mode" />
+    <registryKey
+            key="ide.project.view.auto.align.horizontally"
+            defaultValue="false"
+            description="Auto-align Project View horizontally on selection/expansion so that a node is aligned by its left edge"/>
     <pathMacroFilter implementation="com.intellij.ide.projectView.impl.ProjectViewPathMacroFilter"/>
     <projectService serviceImplementation="com.intellij.ide.projectView.impl.ProjectViewState"/>
 
@@ -1199,6 +1200,8 @@
     <statistics.counterUsagesCollector
       implementationClass="com.intellij.openapi.fileTypes.impl.associate.OSFileAssociationFeatureUsagesUtil"/>
     <statistics.counterUsagesCollector implementationClass="com.intellij.codeInsight.hints.declarative.impl.InlayActionHandlerUsagesCollector"/>
+
+    <statistics.counterUsagesCollector implementationClass="com.intellij.ide.actions.AttachDirectoryUsagesCollector"/>
 
     <renamePsiElementProcessor implementation="com.intellij.refactoring.rename.RenamePsiFileProcessor" order="last" id="renamePsiFile"/>
     <renameInputValidator implementation="com.intellij.refactoring.rename.RenameToIgnoredDirectoryFileInputValidator" order="last"/>
@@ -1509,7 +1512,7 @@
     <highlightingPassFactory implementation="com.intellij.codeInsight.folding.impl.CodeFoldingPassFactory"/>
     <highlightingPassFactory implementation="com.intellij.openapi.fileEditor.impl.text.FocusModePassFactory"/>
     <highlightingPassFactory implementation="com.intellij.codeInsight.hints.ParameterHintsPassFactory"/>
-    <highlightingPassFactory implementation="com.intellij.codeInsight.daemon.impl.IndentsPassFactory"/>
+    <highlightingPassFactory implementation="com.intellij.codeInsight.daemon.impl.indentGuide.IndentGuidePassFactory"/>
     <highlightingPassFactory implementation="com.intellij.codeInsight.folding.impl.InjectedCodeFoldingPassFactory"/>
     <highlightingPassFactory implementation="com.intellij.codeInsight.daemon.impl.LocalInspectionsPassFactory"/>
     <highlightingPassFactory implementation="com.intellij.codeInsight.daemon.impl.ShowAutoImportPassFactory"/>

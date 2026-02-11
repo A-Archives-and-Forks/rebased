@@ -2,7 +2,17 @@
 package com.intellij.tools.ide.performanceTesting.commands
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.intellij.tools.ide.performanceTesting.commands.dto.*
+import com.intellij.tools.ide.performanceTesting.commands.dto.BuildToolsAutoReloadType
+import com.intellij.tools.ide.performanceTesting.commands.dto.BuildType
+import com.intellij.tools.ide.performanceTesting.commands.dto.GradleTaskInfoDto
+import com.intellij.tools.ide.performanceTesting.commands.dto.GradleTestRunner
+import com.intellij.tools.ide.performanceTesting.commands.dto.MavenArchetypeInfo
+import com.intellij.tools.ide.performanceTesting.commands.dto.MavenGoalConfigurationDto
+import com.intellij.tools.ide.performanceTesting.commands.dto.MoveDeclarationsData
+import com.intellij.tools.ide.performanceTesting.commands.dto.MoveFilesData
+import com.intellij.tools.ide.performanceTesting.commands.dto.NewGradleProjectDto
+import com.intellij.tools.ide.performanceTesting.commands.dto.NewMavenProjectDto
+import com.intellij.tools.ide.performanceTesting.commands.dto.NewSpringProjectDto
 import java.io.File
 import java.lang.reflect.Modifier
 import java.nio.file.Path
@@ -461,15 +471,20 @@ fun <T : CommandChain> T.createAllServicesAndExtensions(): T = apply {
   addCommand("${CMD_PREFIX}CreateAllServicesAndExtensions")
 }
 
+enum class RunConfigurationMode {
+  TILL_STARTED,
+  TILL_TERMINATED
+}
+
 fun <T : CommandChain> T.runConfiguration(
   configurationName: String,
-  mode: String = "TILL_TERMINATED",
+  mode: RunConfigurationMode = RunConfigurationMode.TILL_TERMINATED,
   failureExpected: Boolean = false,
   debug: Boolean = false,
 ): T = apply {
   val command = mutableListOf("${CMD_PREFIX}runConfiguration")
   command.add("-configurationName=$configurationName")
-  command.add("-mode=$mode")
+  command.add("-mode=${mode.name}")
   if (failureExpected) {
     command.add("-failureExpected")
   }

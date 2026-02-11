@@ -108,7 +108,7 @@ class PluginDependenciesValidator private constructor(
 
   private fun reportPluginLoadingErrors(loadingErrors: List<PluginLoadingError>) {
     for (error in loadingErrors) {
-      val errorMessage = error.htmlMessage.toString()
+      val errorMessage = error.htmlMessage.toString() + if (error.reason != null) { ":\n  ${error.reason!!.logMessage}" } else ""
       if (options.pluginErrorPrefixesToIgnore.any { errorMessage.startsWith(it) }) {
         continue
       }
@@ -295,7 +295,7 @@ class PluginDependenciesValidator private constructor(
       }
     }
       .withProductMode(productMode)
-      .withDisabledPlugins("com.jetbrains.kmm") // TODO: support incompatible plugins (IJI-2975)
+      .withDisabledPlugins(*options.pluginsToIgnore.map { it.idString }.toTypedArray())
       .withCustomCoreLoader(UrlClassLoader.build().files(corePluginDescription.jpsModulesInClasspath.map { getModuleOutputDir(it) }).get())
     
     return pluginSetBuilder.build()

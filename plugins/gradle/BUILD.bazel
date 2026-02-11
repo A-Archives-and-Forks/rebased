@@ -54,7 +54,6 @@ jvm_library(
     "//libraries/fastutil",
     "//libraries/commons/cli",
     "//platform/workspace/storage",
-    "//plugins/properties/properties-psi-impl:backend-psi",
     "//platform/core-ui",
     "//platform/util-class-loader:util-classLoader",
     "//platform/platform-util-io:ide-util-io",
@@ -78,6 +77,8 @@ jvm_library(
     "//platform/util/coroutines",
     "//platform/execution",
     "//platform/forms_rt:java-guiForms-rt",
+    "//libraries/jspecify",
+    "//platform/util/text-matching",
   ],
   exports = [
     "//platform/external-system-api:externalSystem",
@@ -120,6 +121,7 @@ jvm_library(
     "//libraries/gson",
     "//libraries/guava",
     "//platform/forms_rt:java-guiForms-rt",
+    "//plugins/repository-search/common",
   ]
 )
 
@@ -179,7 +181,6 @@ jvm_library(
     "//tools/intellij.tools.ide.metrics.benchmark:ide-metrics-benchmark_test_lib",
     "//platform/backend/observation",
     "//platform/backend/observation:observation_test_lib",
-    "//android/gradle-dsl-groovy",
     "//platform/xdebugger-api:debugger",
     "//platform/smRunner",
     "//platform/smRunner:smRunner_test_lib",
@@ -192,6 +193,10 @@ jvm_library(
     "//platform/forms_rt:java-guiForms-rt",
     "//java/testFramework/backend",
     "@lib//:junit5Pioneer",
+    "//plugins/repository-search/common",
+    "//plugins/repository-search/common:common_test_lib",
+    "//plugins/gradle/completion",
+    "//plugins/gradle/completion:completion_test_lib",
   ],
   exports = ["//platform/external-system-api/testFramework"],
   runtime_deps = [":gradle-tests"]

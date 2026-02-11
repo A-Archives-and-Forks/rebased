@@ -1,7 +1,13 @@
 // Copyright 2000-2023 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package org.jetbrains.plugins.gitlab.mergerequest.diff
 
-import com.intellij.collaboration.async.*
+import com.intellij.collaboration.async.collectScoped
+import com.intellij.collaboration.async.combineState
+import com.intellij.collaboration.async.launchNow
+import com.intellij.collaboration.async.mapState
+import com.intellij.collaboration.async.mapStatefulToStateful
+import com.intellij.collaboration.async.stateInNow
+import com.intellij.collaboration.async.transformConsecutiveSuccesses
 import com.intellij.collaboration.ui.codereview.diff.DiffLineLocation
 import com.intellij.collaboration.ui.codereview.diff.UnifiedCodeReviewItemPosition
 import com.intellij.collaboration.ui.codereview.diff.viewer.showCodeReview
@@ -10,7 +16,11 @@ import com.intellij.collaboration.ui.codereview.editor.CodeReviewEditorGutterCon
 import com.intellij.collaboration.ui.codereview.editor.CodeReviewEditorModel
 import com.intellij.collaboration.ui.codereview.editor.CodeReviewNavigableEditorViewModel
 import com.intellij.collaboration.ui.icon.IconsProvider
-import com.intellij.collaboration.util.*
+import com.intellij.collaboration.util.ComputedResult
+import com.intellij.collaboration.util.Hideable
+import com.intellij.collaboration.util.RefComparisonChange
+import com.intellij.collaboration.util.getOrNull
+import com.intellij.collaboration.util.syncOrToggleAll
 import com.intellij.diff.DiffContext
 import com.intellij.diff.DiffExtension
 import com.intellij.diff.FrameDiffTool
@@ -80,7 +90,7 @@ class GitLabMergeRequestDiffExtension : DiffExtension() {
 
             viewer.showCodeReview(
               modelFactory = { _, _, locationToLine, lineToLocations, lineToUnified ->
-                DiffEditorModel(this, changeVm, locationToLine, lineToLocations) {
+                DiffEditorModel(this, project, changeVm, locationToLine, lineToLocations) {
                   val (leftLine, rightLine) = lineToUnified(it)
                   UnifiedCodeReviewItemPosition(change, leftLine, rightLine)
                 }
@@ -116,6 +126,7 @@ internal interface GitLabReviewDiffEditorModel : CodeReviewEditorModel<GitLabMer
 
 private class DiffEditorModel(
   cs: CoroutineScope,
+  private val project: Project,
   private val diffReviewVm: GitLabMergeRequestDiffReviewViewModel,
   private val locationToLine: (DiffLineLocation) -> Int?,
   private val lineToLocation: (Int) -> DiffLineLocation?,
@@ -158,6 +169,7 @@ private class DiffEditorModel(
 
   override fun toggleComments(lineIdx: Int) {
     inlays.value.asSequence().filter { it.line.value == lineIdx }.filterIsInstance<Hideable>().syncOrToggleAll()
+    GitLabStatistics.logToggledComments(project)
   }
 
   override val canNavigate: Boolean get() = diffReviewVm.isCumulativeChange
