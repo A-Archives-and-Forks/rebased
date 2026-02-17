@@ -10664,6 +10664,21 @@ public abstract class K1QuickFixTestGenerated extends AbstractK1QuickFixTest {
                 KotlinTestUtils.runTest(this::doTest, this, testDataFilePath);
             }
 
+            @TestMetadata("explicitBackingFieldToInternal.kt")
+            public void testExplicitBackingFieldToInternal() throws Exception {
+                runTest("testData/quickfix/increaseVisibility/explicitBackingFieldToInternal.kt");
+            }
+
+            @TestMetadata("explicitBackingFieldToProtected.kt")
+            public void testExplicitBackingFieldToProtected() throws Exception {
+                runTest("testData/quickfix/increaseVisibility/explicitBackingFieldToProtected.kt");
+            }
+
+            @TestMetadata("explicitBackingFieldToPublic.kt")
+            public void testExplicitBackingFieldToPublic() throws Exception {
+                runTest("testData/quickfix/increaseVisibility/explicitBackingFieldToPublic.kt");
+            }
+
             @TestMetadata("exposedParameterType.kt")
             public void testExposedParameterType() throws Exception {
                 runTest("testData/quickfix/increaseVisibility/exposedParameterType.kt");
@@ -13224,9 +13239,14 @@ public abstract class K1QuickFixTestGenerated extends AbstractK1QuickFixTest {
                 runTest("testData/quickfix/optIn/classUseOptIn.kt");
             }
 
-            @TestMetadata("destructuringDeclaration.kt")
-            public void testDestructuringDeclaration() throws Exception {
-                runTest("testData/quickfix/optIn/destructuringDeclaration.kt");
+            @TestMetadata("destructuringDeclarationOnFunction.kt")
+            public void testDestructuringDeclarationOnFunction() throws Exception {
+                runTest("testData/quickfix/optIn/destructuringDeclarationOnFunction.kt");
+            }
+
+            @TestMetadata("destructuringDeclarationOnStatement.kt")
+            public void testDestructuringDeclarationOnStatement() throws Exception {
+                runTest("testData/quickfix/optIn/destructuringDeclarationOnStatement.kt");
             }
 
             @TestMetadata("existingFileAnnotationWithPackage.kt")
@@ -17661,6 +17681,40 @@ public abstract class K1QuickFixTestGenerated extends AbstractK1QuickFixTest {
         }
 
         @RunWith(JUnit3RunnerWithInners.class)
+        @TestMetadata("testData/quickfix/suppress/expressionBody")
+        public static class ExpressionBody extends AbstractK1QuickFixTest {
+            @java.lang.Override
+            @org.jetbrains.annotations.NotNull
+            public final KotlinPluginMode getPluginMode() {
+                return KotlinPluginMode.K1;
+            }
+
+            private void runTest(String testDataFilePath) throws Exception {
+                KotlinTestUtils.runTest(this::doTest, this, testDataFilePath);
+            }
+
+            @TestMetadata("inExpressionBody.kt")
+            public void testInExpressionBody() throws Exception {
+                runTest("testData/quickfix/suppress/expressionBody/inExpressionBody.kt");
+            }
+
+            @TestMetadata("inExpressionBody2.kt")
+            public void testInExpressionBody2() throws Exception {
+                runTest("testData/quickfix/suppress/expressionBody/inExpressionBody2.kt");
+            }
+
+            @TestMetadata("inExpressionBodyNewLine.kt")
+            public void testInExpressionBodyNewLine() throws Exception {
+                runTest("testData/quickfix/suppress/expressionBody/inExpressionBodyNewLine.kt");
+            }
+
+            @TestMetadata("inExpressionBodyReturnType.kt")
+            public void testInExpressionBodyReturnType() throws Exception {
+                runTest("testData/quickfix/suppress/expressionBody/inExpressionBodyReturnType.kt");
+            }
+        }
+
+        @RunWith(JUnit3RunnerWithInners.class)
         @TestMetadata("testData/quickfix/suppress/external")
         public static class External extends AbstractK1QuickFixTest {
             @java.lang.Override
@@ -17713,11 +17767,6 @@ public abstract class K1QuickFixTestGenerated extends AbstractK1QuickFixTest {
                 @TestMetadata("inDefaultArgument.kt")
                 public void testInDefaultArgument() throws Exception {
                     runTest("testData/quickfix/suppress/forStatement/unavailable/inDefaultArgument.kt");
-                }
-
-                @TestMetadata("inExpressionBody.kt")
-                public void testInExpressionBody() throws Exception {
-                    runTest("testData/quickfix/suppress/forStatement/unavailable/inExpressionBody.kt");
                 }
 
                 @TestMetadata("inLocalValInitializer.kt")

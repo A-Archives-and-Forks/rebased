@@ -425,6 +425,7 @@ public final class JvmClassNodeBuilder extends ClassVisitor implements NodeBuild
   private final String myFileName;
   private final boolean myIsGenerated;
   private final boolean myIsLibraryMode;
+  private boolean myHasImplicitTypes;
   private int myAccess;
   private String myName;
   private String myVersion; // for class contains a class bytecode version, for module contains a module version
@@ -496,6 +497,11 @@ public final class JvmClassNodeBuilder extends ClassVisitor implements NodeBuild
   }
 
   @Override
+  public void setHasImplicitTypes() {
+    myHasImplicitTypes = true;
+  }
+
+  @Override
   public JVMClassNode<? extends JVMClassNode<?, ?>, ? extends Proto.Diff<? extends JVMClassNode<?, ?>>> getResult() {
     JVMFlags flags = new JVMFlags(myAccess);
     if (myLocalClassFlag.get()) {
@@ -513,14 +519,15 @@ public final class JvmClassNodeBuilder extends ClassVisitor implements NodeBuild
     if (myIsLibraryMode) {
       flags = flags.deriveIsLibrary();
     }
+    if (myHasImplicitTypes) {
+      flags = flags.deriveContainsImplicitTypes();
+    }
 
     if (myIsModule) {
-      if (!myIsLibraryMode) {
-        for (ModuleUsage usage : Iterators.map(Iterators.filter(myModuleRequires, r -> !Objects.equals(myName, r.getName())), r -> new ModuleUsage(r.getName()))) {
-          addUsage(usage);
-        }
+      for (ModuleUsage usage : Iterators.map(Iterators.filter(myModuleRequires, r -> !Objects.equals(myName, r.getName())), r -> new ModuleUsage(r.getName()))) {
+        addUsage(usage);
       }
-      return new JvmModule(flags, myName, myFileName, myVersion, myModuleRequires, myModuleExports, myIsLibraryMode? Set.of() : myUsages, myMetadata);
+      return new JvmModule(flags, myName, myFileName, myVersion, myModuleRequires, myModuleExports, myIsLibraryMode? Iterators.filter(myUsages, u -> u instanceof ModuleUsage) : myUsages, myMetadata);
     }
 
     if (!myIsLibraryMode) {

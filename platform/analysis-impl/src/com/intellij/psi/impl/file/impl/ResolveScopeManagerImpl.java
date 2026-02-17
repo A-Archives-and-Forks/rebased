@@ -19,7 +19,15 @@ import com.intellij.openapi.roots.impl.LibraryScopeCache;
 import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.VirtualFileUtil;
-import com.intellij.psi.*;
+import com.intellij.psi.FileResolveScopeProvider;
+import com.intellij.psi.FileViewProvider;
+import com.intellij.psi.PsiCodeFragment;
+import com.intellij.psi.PsiDirectory;
+import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiFile;
+import com.intellij.psi.PsiManager;
+import com.intellij.psi.ResolveScopeEnlarger;
+import com.intellij.psi.ResolveScopeProvider;
 import com.intellij.psi.impl.AnyPsiChangeListener;
 import com.intellij.psi.impl.ResolveScopeManager;
 import com.intellij.psi.search.GlobalSearchScope;
@@ -207,7 +215,7 @@ public final class ResolveScopeManagerImpl extends ResolveScopeManager implement
       var empty = projectFileIndex.findContainingLibraries(notNullVFile).isEmpty()
                   && projectFileIndex.findContainingSdks(notNullVFile).isEmpty();
       if (empty &&
-          (WorkspaceFileIndex.getInstance(myProject).findFileSet(notNullVFile, true, false, false, true, true, true) != null ||
+          (WorkspaceFileIndex.getInstance(myProject).findFileSet(notNullVFile, true, false, false, true, true, true, true) != null ||
            myAdditionalIndexableFileSet.isInSet(notNullVFile))) {
         return allScope;
       }

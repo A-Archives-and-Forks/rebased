@@ -43,12 +43,12 @@ import org.jetbrains.intellij.build.SoftwareBillOfMaterials
 import org.jetbrains.intellij.build.VmProperties
 import org.jetbrains.intellij.build.WindowsLibcImpl
 import org.jetbrains.intellij.build.buildSearchableOptions
+import org.jetbrains.intellij.build.classPath.PluginBuildDescriptor
 import org.jetbrains.intellij.build.executeStep
 import org.jetbrains.intellij.build.findFileInModuleSources
 import org.jetbrains.intellij.build.findProductModulesFile
 import org.jetbrains.intellij.build.impl.maven.MavenArtifactData
 import org.jetbrains.intellij.build.impl.maven.MavenArtifactsBuilder
-import org.jetbrains.intellij.build.classPath.PluginBuildDescriptor
 import org.jetbrains.intellij.build.impl.plugins.buildNonBundledPlugins
 import org.jetbrains.intellij.build.impl.plugins.buildPlugins
 import org.jetbrains.intellij.build.impl.productInfo.PRODUCT_INFO_FILE_NAME
@@ -67,6 +67,7 @@ import org.jetbrains.intellij.build.telemetry.TraceManager.spanBuilder
 import org.jetbrains.intellij.build.telemetry.block
 import org.jetbrains.intellij.build.telemetry.use
 import org.jetbrains.intellij.build.zipSourcesOfModules
+import java.nio.file.FileSystems
 import java.nio.file.FileVisitResult
 import java.nio.file.Files
 import java.nio.file.NoSuchFileException
@@ -487,11 +488,17 @@ suspend fun buildDistributions(context: BuildContext): Unit = block("build distr
       val pluginsToPublish = getPluginLayoutsByJpsModuleNames(
         modules = context.productProperties.productLayout.pluginModulesToPublish,
         productLayout = context.productProperties.productLayout,
-        toPublish = true
+        toPublish = true,
       )
       buildNonBundledPlugins(
-        pluginsToPublish, context.options.compressZipFiles, buildPlatformLibJob = null, distributionState, buildSearchableOptions(context), isUpdateFromSources = false,
-        distributionState.platformLayout.descriptorCacheContainer, context
+        pluginsToPublish = pluginsToPublish,
+        compressPluginArchive = context.options.compressZipFiles,
+        buildPlatformLibJob = null,
+        state = distributionState,
+        searchableOptionSet = buildSearchableOptions(context),
+        isUpdateFromSources = false,
+        descriptorCacheContainer = distributionState.platformLayout.descriptorCacheContainer,
+        context = context,
       )
       return@coroutineScope
     }
@@ -589,6 +596,11 @@ private suspend fun checkProductProperties(context: BuildContext) {
   checkProductLayout(context)
 
   val properties = context.productProperties
+  val imagesDirectoryPath = properties.imagesDirectoryPath
+  if (imagesDirectoryPath != null) {
+    checkPaths(listOf(imagesDirectoryPath), "productProperties.imagesDirectoryPath")
+    verifyThatProductImageFilesExist(imagesDirectoryPath, context)
+  }
   checkPaths(properties.brandingResourcePaths, "productProperties.brandingResourcePaths")
   checkPaths(properties.additionalIDEPropertiesFilePaths, "productProperties.additionalIDEPropertiesFilePaths")
   checkPaths(properties.additionalDirectoriesWithLicenses, "productProperties.additionalDirectoriesWithLicenses")
@@ -633,15 +645,17 @@ private suspend fun checkProductProperties(context: BuildContext) {
     checkNotNull(macCustomizer.bundleIdentifier) {
       "Mandatory property '${"productProperties.macCustomizer.bundleIdentifier"}' is not specified"
     }
-    checkPaths(listOf(macCustomizer.icnsPath), "productProperties.macCustomizer.icnsPath")
+    checkPaths(listOfNotNull(macCustomizer.icnsPath), "productProperties.macCustomizer.icnsPath")
     checkPaths(listOfNotNull(macCustomizer.icnsPathForEAP), "productProperties.macCustomizer.icnsPathForEAP")
+    @Suppress("DEPRECATION")
     checkPaths(listOfNotNull(macCustomizer.icnsPathForAlternativeIcon), "productProperties.macCustomizer.icnsPathForAlternativeIcon")
+    @Suppress("DEPRECATION")
     checkPaths(
       listOfNotNull(macCustomizer.icnsPathForAlternativeIconForEAP),
       "productProperties.macCustomizer.icnsPathForAlternativeIconForEAP"
     )
     context.executeStep(spanBuilder("check .dmg images"), BuildOptions.MAC_DMG_STEP) {
-      checkPaths(listOf(macCustomizer.dmgImagePath), "productProperties.macCustomizer.dmgImagePath")
+      checkPaths(listOfNotNull(macCustomizer.dmgImagePath), "productProperties.macCustomizer.dmgImagePath")
       checkPaths(listOfNotNull(macCustomizer.dmgImagePathForEAP), "productProperties.macCustomizer.dmgImagePathForEAP")
     }
   }
@@ -877,7 +891,7 @@ private suspend fun buildCrossPlatformZip(distResults: List<DistributionForOsTas
     productJson = productJson,
     extraFiles = extraFiles,
     crossPlatformPluginsDir = crossPlatformPluginsDir,
-    crossPlatformPluginDirNames = crossPlatformBuiltPlugins.mapTo(HashSet()) { it.layout.directoryName },
+    crossPlatformBuiltPlugins = crossPlatformBuiltPlugins,
     context = context,
   )
 
@@ -910,13 +924,12 @@ private suspend fun buildCrossPlatformOnlyPlugins(context: BuildContext): Pair<P
     .use {
       val state = context.distributionState()
       buildPlugins(
-        moduleOutputPatcher = ModuleOutputPatcher(),
         plugins = crossPlatformPlugins,
         os = null,
         arch = null,
         targetDir = targetDir,
         state = state,
-        buildPlatformJob = null,
+        platformEntriesProvider = null,
         searchableOptionSet = null,
         descriptorCacheContainer = state.platformLayout.descriptorCacheContainer,
         context = context,
@@ -994,26 +1007,43 @@ internal fun getLinuxFrameClass(context: BuildContext): String {
   return if (name.startsWith("jetbrains-")) name else "jetbrains-$name"
 }
 
-private fun crossPlatformZip(
+private suspend fun crossPlatformZip(
   distResults: List<DistributionForOsTaskResult>,
   targetFile: Path,
   executableName: String,
   productJson: String,
   extraFiles: Map<String, Path>,
   crossPlatformPluginsDir: Path?,
-  crossPlatformPluginDirNames: Set<String>,
+  crossPlatformBuiltPlugins: List<PluginBuildDescriptor>,
   context: BuildContext,
 ) {
   val winX64DistDir = distResults.first { it.builder.targetOs == OsFamily.WINDOWS && it.arch == JvmArchitecture.x64 }.outDir
   val macArm64DistDir = distResults.first { it.builder.targetOs == OsFamily.MACOS && it.arch == JvmArchitecture.aarch64 }.outDir
   val linuxX64DistDir = distResults.first { it.builder.targetOs == OsFamily.LINUX && it.arch == JvmArchitecture.x64 && it.libc == LinuxLibcImpl.GLIBC }.outDir
 
-  val executablePatterns = distResults.flatMap {
+  val distPatterns = distResults.flatMap {
     it.builder.generateExecutableFilesMatchers(includeRuntime = false, JvmArchitecture.x64).keys +
     it.builder.generateExecutableFilesMatchers(includeRuntime = false, JvmArchitecture.aarch64).keys
   }
+
+  val crossPlatformPluginDirNames = crossPlatformBuiltPlugins.mapTo(HashSet()) { it.layout.directoryName }
+
+  val fileSystem = FileSystems.getDefault()
+  val crossPlatformPluginPatterns = crossPlatformBuiltPlugins
+    .flatMap { descriptor ->
+      descriptor.layout.executablePatterns.flatMap { (_, patterns) ->
+        patterns.map { pattern ->
+          fileSystem.getPathMatcher("glob:plugins/${descriptor.layout.directoryName}/$pattern")
+        }
+      }
+    }
+
+  val executablePatterns = distPatterns + crossPlatformPluginPatterns
+
   val entryCustomizer: (ZipArchiveEntry, Path, String) -> Unit = { entry, _, relativePathString ->
-    val relativePath = Path.of(relativePathString)
+    // relativePath for plugins comes relative to "plugins" directory
+    // so it's better to use full path relative to zip root
+    val relativePath = Path.of(entry.name)
     if (executablePatterns.any { it.matches(relativePath) }) {
       entry.unixMode = executableFileUnixMode
     }

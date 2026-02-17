@@ -8,14 +8,24 @@ import junit.framework.JUnit4TestAdapter;
 import junit.framework.JUnit4TestAdapterCache;
 import junit.framework.TestResult;
 import junit.framework.TestSuite;
-import org.junit.platform.engine.*;
+import org.junit.platform.engine.DiscoverySelector;
+import org.junit.platform.engine.Filter;
+import org.junit.platform.engine.FilterResult;
+import org.junit.platform.engine.TestDescriptor;
+import org.junit.platform.engine.TestExecutionResult;
+import org.junit.platform.engine.TestSource;
 import org.junit.platform.engine.discovery.ClassNameFilter;
 import org.junit.platform.engine.discovery.DiscoverySelectors;
 import org.junit.platform.engine.reporting.ReportEntry;
 import org.junit.platform.engine.support.descriptor.ClassSource;
 import org.junit.platform.engine.support.descriptor.EngineDescriptor;
 import org.junit.platform.engine.support.descriptor.MethodSource;
-import org.junit.platform.launcher.*;
+import org.junit.platform.launcher.Launcher;
+import org.junit.platform.launcher.LauncherDiscoveryRequest;
+import org.junit.platform.launcher.PostDiscoveryFilter;
+import org.junit.platform.launcher.TestExecutionListener;
+import org.junit.platform.launcher.TestIdentifier;
+import org.junit.platform.launcher.TestPlan;
 import org.junit.platform.launcher.core.LauncherConfig;
 import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
 import org.junit.platform.launcher.core.LauncherFactory;
@@ -32,7 +42,14 @@ import java.io.StringWriter;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 import static com.intellij.tests.JUnit5TeamCityRunnerForTestsOnClasspath.assertNoUnhandledExceptions;
 
@@ -248,7 +265,7 @@ public final class JUnit5TeamCityRunnerForTestAllSuite {
           testFailure(testIdentifier, ServiceMessageTypes.TEST_IGNORED, throwableOptional, duration, reason);
         }
 
-        TestLocationStorage.recordTestLocation(testIdentifier, status, getName(testIdentifier));
+        TestLocationStorage.recordTestLocation(testIdentifier, status, getFullTestPath(testIdentifier));
 
         testFinished(testIdentifier, duration);
         myFinishCount++;
@@ -426,6 +443,41 @@ public final class JUnit5TeamCityRunnerForTestAllSuite {
              "' name='" + escapeName(name) +
              "' nodeId='" + escapeName(id) +
              "' parentNodeId='" + escapeName(parentId) + "'";
+    }
+
+    /**
+     * Required for TC to match parametrized and factory tests when we attach metadata after the run
+     */
+    private String getFullTestPath(TestIdentifier testIdentifier) {
+      List<String> names = new ArrayList<>();
+      Optional<TestIdentifier> parent = myTestPlan.getParent(testIdentifier);
+      boolean isImmediateParent = true;
+
+      while (parent.isPresent()) {
+        TestIdentifier p = parent.get();
+        if (hasNonTrivialParent(p)) {
+          // Skip class-level parent only if it's the immediate parent of a method test
+          // (getName already includes the class name)
+          boolean skipClassParent = isImmediateParent
+                                    && p.getSource().orElse(null) instanceof ClassSource cs
+                                    && testIdentifier.getSource().orElse(null) instanceof MethodSource ms
+                                    && cs.getClassName().equals(ms.getClassName());
+
+          if (!skipClassParent) {
+            names.add(p.getSource().map(s -> switch (s) {
+              case ClassSource source -> source.getClassName();
+              case MethodSource ms -> ms.getClassName() + "." + p.getDisplayName();
+              default -> p.getDisplayName();
+            }).orElse(p.getDisplayName()));
+          }
+        }
+        parent = myTestPlan.getParent(p);
+        isImmediateParent = false;
+      }
+
+      Collections.reverse(names);
+      names.add(getName(testIdentifier));
+      return String.join(": ", names);
     }
 
     private String getParentId(TestIdentifier testIdentifier) {

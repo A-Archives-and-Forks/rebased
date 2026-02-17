@@ -4,7 +4,12 @@ package com.intellij.openapi.editor.impl
 import com.intellij.application.options.CodeStyle
 import com.intellij.codeWithMe.ClientId
 import com.intellij.lang.Language
-import com.intellij.openapi.application.*
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.EDT
+import com.intellij.openapi.application.ModalityState
+import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.application.asContextElement
+import com.intellij.openapi.application.readAction
 import com.intellij.openapi.components.ComponentManagerEx
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.getOrLogException
@@ -36,7 +41,11 @@ import com.intellij.psi.codeStyle.CodeStyleSettingsManager
 import com.intellij.util.PatternUtil
 import com.intellij.util.SlowOperations
 import com.intellij.util.cancelOnDispose
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.jetbrains.annotations.ApiStatus
 import java.beans.PropertyChangeEvent
 import java.beans.PropertyChangeListener
@@ -141,6 +150,7 @@ class EditorSettingsState(private val editor: EditorImpl?,
                                                CustomOutValueModifier { if (editor != null && editor.isColumnMode) true else it })
   var myIsCaretBlinking: Boolean by property { EditorSettingsExternalizable.getInstance().isBlinkCaret }
   var myCaretBlinkingPeriod: Int by property { EditorSettingsExternalizable.getInstance().blinkPeriod }
+  var myIsSmoothCaretBlinking: Boolean by property { EditorSettingsExternalizable.getInstance().isSmoothBlinkCaret }
   var myIsRightMarginShown: Boolean by property(EditorSettingsExternalizable.getInstance().isRightMarginShown) {
     if (editor != null && rightMargin == CodeStyleConstraints.MAX_RIGHT_MARGIN) false
     else EditorSettingsExternalizable.getInstance().isRightMarginShown
@@ -244,6 +254,7 @@ class EditorSettingsState(private val editor: EditorImpl?,
             EditorSettingsExternalizable.PropNames.PROP_IS_CARET_INSIDE_TABS -> refresh(::myIsCaretInsideTabs)
             EditorSettingsExternalizable.PropNames.PROP_IS_CARET_BLINKING -> refresh(::myIsCaretBlinking)
             EditorSettingsExternalizable.PropNames.PROP_CARET_BLINKING_PERIOD -> refresh(::myCaretBlinkingPeriod)
+            EditorSettingsExternalizable.PropNames.PROP_IS_SMOOTH_CARET_BLINKING -> refresh(::myIsSmoothCaretBlinking)
             EditorSettingsExternalizable.PropNames.PROP_IS_RIGHT_MARGIN_SHOWN -> refresh(::myIsRightMarginShown)
 
             EditorSettingsExternalizable.PropNames.PROP_VERTICAL_SCROLL_OFFSET -> refresh(::myVerticalScrollOffset)

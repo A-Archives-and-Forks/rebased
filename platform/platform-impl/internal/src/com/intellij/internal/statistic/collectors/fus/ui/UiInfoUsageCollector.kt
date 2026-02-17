@@ -127,7 +127,9 @@ private suspend fun getDescriptors(): Set<MetricEvent> {
   addNumberOfMonitors(set)
   addScreenResolutions(set)
   set.add(BACKGROUND_IMAGE.metric(isBackgroundImageSet()))
-  set.add(SWITCHED_FROM_CLASSIC_TO_ISLANDS.metric(isSwitchedFromClassicToIslands()))
+  ExperimentalUI.switchedFromClassicToIslands?.let {
+    set.add(SWITCHED_FROM_CLASSIC_TO_ISLANDS.metric(it))
+  }
   return set
 }
 
@@ -200,7 +202,3 @@ private fun isBackgroundImageSet(): Boolean =
     IdeBackgroundUtil.isEditorBackgroundImageSet(it) ||
     IdeBackgroundUtil.isFrameBackgroundImageSet(it)
   }
-
-private fun isSwitchedFromClassicToIslands(): Boolean {
-  return ExperimentalUI.switchedFromClassicToIslands == true
-}

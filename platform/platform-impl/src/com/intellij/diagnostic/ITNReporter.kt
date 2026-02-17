@@ -22,7 +22,11 @@ import com.intellij.openapi.ui.MessageDialogBuilder
 import com.intellij.openapi.ui.Messages
 import com.intellij.platform.ide.progress.withBackgroundProgress
 import com.intellij.util.Consumer
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.jetbrains.annotations.ApiStatus
 import java.awt.Component
 import java.util.concurrent.atomic.AtomicBoolean
@@ -78,7 +82,10 @@ open class ITNReporter internal constructor(private val postUrl: String) : Error
   open fun showErrorInRelease(event: IdeaLoggingEvent): Boolean = false
 
   private fun createReportBean(event: IdeaLoggingEvent, comment: String?): ErrorBean =
-    ErrorBean(event, comment, event.plugin?.pluginId?.idString, event.plugin?.name, event.plugin?.version, IdeaLogger.ourLastActionId)
+    ErrorBean(event, comment,
+              event.plugin?.pluginId?.idString, event.plugin?.name, event.plugin?.version,
+              IdeaLogger.ourLastActionId,
+              ExceptionAutoReportUtil.isPlatformAutoReportedEvent(event))
 
   private fun submit(
     project: Project?,

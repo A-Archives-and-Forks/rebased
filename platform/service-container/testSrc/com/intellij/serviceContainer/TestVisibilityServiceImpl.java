@@ -1,7 +1,7 @@
 // Copyright 2000-2026 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package com.intellij.serviceContainer;
 
-public class TestVisibilityServiceImpl extends TestVisibilityService {
+class TestVisibilityServiceImpl extends TestVisibilityService {
   private String privateMethod() { return "private_impl"; }
 
   @Override

@@ -12,6 +12,9 @@ import com.intellij.openapi.util.registry.Registry;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.remote.RemoteSshProcess;
 import com.intellij.ui.ExperimentalUI;
+import com.intellij.util.concurrency.ThreadingAssertions;
+import com.intellij.util.concurrency.annotations.RequiresBackgroundThread;
+import com.intellij.util.concurrency.annotations.RequiresReadLockAbsence;
 import com.intellij.util.containers.ContainerUtil;
 import com.intellij.util.containers.MultiMap;
 import com.jediterm.core.input.KeyEvent;
@@ -37,7 +40,18 @@ public final class TerminalUtil {
 
   private TerminalUtil() {}
 
+  /**
+   * Determines if any command is running in the terminal by checking if the shell has any child processes.
+   * This method may access the file system and launch external processes,
+   * so it is prohibited to call it on EDT or under read action.
+   */
+  @SuppressWarnings("UsagesOfObsoleteApi")  // Can't use just only annotations because they generate throwing assertions
+  @RequiresReadLockAbsence(generateAssertion = false)
+  @RequiresBackgroundThread(generateAssertion = false)
   public static boolean hasRunningCommands(@NotNull TtyConnector connector) throws IllegalStateException {
+    ThreadingAssertions.softAssertBackgroundThread();
+    ThreadingAssertions.softAssertNoReadAccess();
+
     if (!connector.isConnected()) return false;
     ProcessTtyConnector processTtyConnector = ShellTerminalWidget.getProcessTtyConnector(connector);
     if (processTtyConnector == null) return true;

@@ -63,8 +63,7 @@ import org.jetbrains.kotlin.config.CompilerSettings.Companion.DEFAULT_ADDITIONAL
 import org.jetbrains.kotlin.config.JvmTarget
 import org.jetbrains.kotlin.config.LanguageVersion
 import org.jetbrains.kotlin.idea.KotlinFileType
-import org.jetbrains.kotlin.idea.artifacts.TestKotlinArtifacts.coroutineContext
-import org.jetbrains.kotlin.idea.artifacts.TestKotlinArtifacts.kotlinxCoroutines
+import org.jetbrains.kotlin.idea.artifacts.TestKotlinArtifacts
 import org.jetbrains.kotlin.idea.base.facet.hasKotlinFacet
 import org.jetbrains.kotlin.idea.base.facet.platform.platform
 import org.jetbrains.kotlin.idea.base.test.InTextDirectivesUtils
@@ -315,7 +314,10 @@ abstract class KotlinLightCodeInsightFixtureTestCase : KotlinLightCodeInsightFix
                     KotlinProjectDescriptorWithFacet.KOTLIN_STABLE_WITH_MULTIPLATFORM
 
                 InTextDirectivesUtils.isDirectiveDefined(fileText, "WITH_COROUTINES") ->
-                    KotlinWithJdkAndRuntimeLightProjectDescriptor(listOf(kotlinxCoroutines, coroutineContext), emptyList())
+                    KotlinWithJdkAndRuntimeLightProjectDescriptor(
+                        KotlinWithJdkAndRuntimeLightProjectDescriptor.getInstance().libraryFiles +
+                                listOf(TestKotlinArtifacts.kotlinxCoroutines, TestKotlinArtifacts.coroutineContext), emptyList()
+                    )
 
                 else -> getDefaultProjectDescriptor()
             }

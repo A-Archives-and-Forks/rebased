@@ -11,6 +11,12 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.intellij.lang.annotations.Language
 import org.intellij.markdown.IElementType
+import com.intellij.openapi.util.BuildNumber
+import com.intellij.openapi.util.BuildRange
+import com.intellij.openapi.util.JDOMUtil
+import com.intellij.openapi.util.NlsSafe
+import com.intellij.openapi.util.SystemInfo
+import com.intellij.openapi.util.SystemInfoRt
 import org.jdom.Element
 import org.jdom.JDOMException
 import org.jetbrains.annotations.ApiStatus.Internal
@@ -21,6 +27,8 @@ import java.util.*
 import org.intellij.markdown.html.HtmlGenerator
 import org.intellij.markdown.parser.MarkdownParser
 import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
+import java.util.Date
+import java.util.Locale
 
 @Throws(IOException::class, JDOMException::class)
 fun parseUpdateData(

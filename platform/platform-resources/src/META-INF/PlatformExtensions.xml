@@ -899,8 +899,16 @@
     <fileEditorProvider implementation="com.intellij.openapi.fileEditor.impl.http.HttpFileEditorProvider"/>
     <editorActionHandler action="EditorEscape" implementationClass="com.intellij.codeInsight.hint.EscapeHandler" id="hide-hints"/>
 
+    <editorActionHandler action="EditorDelete"
+                         implementationClass="com.intellij.internal.statistic.collectors.fus.DeleteSelectionLoggingHandler"
+                         id="delete.selection.logging"
+                         order="before delete.for.selection"/>
     <editorActionHandler action="EditorDelete" implementationClass="com.intellij.openapi.editor.actions.DeleteSelectionHandler"
                          id="delete.for.selection"/>
+    <editorActionHandler action="EditorBackSpace"
+                         implementationClass="com.intellij.internal.statistic.collectors.fus.BackspaceSelectionLoggingHandler"
+                         id="backspace.selection.logging"
+                         order="after backspace.lookup, before backspace.for.selection"/>
     <editorActionHandler action="EditorBackSpace" implementationClass="com.intellij.openapi.editor.actions.DeleteSelectionHandler"
                          id="backspace.for.selection" order="after backspace.lookup"/>
     <editorActionHandler action="EditorDelete" implementationClass="com.intellij.openapi.editor.actions.DeleteInColumnModeHandler"
@@ -910,12 +918,6 @@
       implementationClass="com.intellij.openapi.editor.actions.DeleteLineAction$CheckHandler"
       order="first"
       id="EditorDeleteLine.checkHandler"
-    />
-
-    <registryKey key="remdev.completion.on.frontend"
-                 defaultValue="false"
-                 description="Enables frontend completion support"
-                 restartRequired="true"
     />
 
     <typedHandler implementation="com.intellij.codeInsight.inline.completion.listeners.typing.InlineCompletionTypedHandlerDelegate"/>
@@ -1554,6 +1556,9 @@
     <codeInsight.codeVisionProvider implementation="com.intellij.refactoring.rename.RenameCodeVisionProvider"/>
     <config.codeVisionGroupSettingProvider implementation="com.intellij.refactoring.rename.RenameCodeVisionSettingProvider"/>
 
+    <statistics.validation.customValidationRule implementation="com.intellij.ide.ColorValidationRule"/>
+    <statistics.counterUsagesCollector implementationClass="com.intellij.ide.ProjectWindowCustimizerUsagesCollector"/>
+
     <applicationService serviceImplementation="com.intellij.internal.DebugAttachDetector" headlessImplementation="" preload="true"/>
 
     <projectService serviceInterface="com.intellij.ui.EditorNotifications" open="true" serviceImplementation="com.intellij.ui.EditorNotificationsImpl"
@@ -1878,7 +1883,7 @@
                  description="Limit of recent items for search everywhere tabs"/>
 
     <registryKey key="search.everywhere.round.text.field"
-                 defaultValue="false"
+                 defaultValue="true"
                  description="Enables round search text field"/>
 
     <registryKey key="highlighting.passes.cache"

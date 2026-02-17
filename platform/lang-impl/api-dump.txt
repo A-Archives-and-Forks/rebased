@@ -288,6 +288,25 @@ com.intellij.codeInsight.hints.codeVision.DaemonBoundCodeVisionProvider
 - a:getRelativeOrderings():java.util.List
 - handleClick(com.intellij.openapi.editor.Editor,com.intellij.openapi.util.TextRange,com.intellij.codeInsight.codeVision.CodeVisionEntry):V
 - preparePreview(com.intellij.openapi.editor.Editor,com.intellij.psi.PsiFile):V
+a:com.intellij.codeInsight.hints.presentation.AbstractRoundWithBackgroundPresentation
+- com.intellij.codeInsight.hints.presentation.StaticDelegatePresentation
+- <init>(com.intellij.codeInsight.hints.presentation.InlayPresentation,java.awt.Color,F):V
+- a:getArcHeight():I
+- a:getArcWidth():I
+- f:getBackgroundAlpha():F
+- f:getColor():java.awt.Color
+- paint(java.awt.Graphics2D,com.intellij.openapi.editor.markup.TextAttributes):V
+f:com.intellij.codeInsight.hints.presentation.PillWithBackgroundPresentation
+- com.intellij.codeInsight.hints.presentation.AbstractRoundWithBackgroundPresentation
+f:com.intellij.codeInsight.hints.presentation.RoundWithBackgroundBorderedPresentation
+- <init>(com.intellij.codeInsight.hints.presentation.AbstractRoundWithBackgroundPresentation,java.awt.Color,I):V
+- b:<init>(com.intellij.codeInsight.hints.presentation.AbstractRoundWithBackgroundPresentation,java.awt.Color,I,I,kotlin.jvm.internal.DefaultConstructorMarker):V
+f:com.intellij.codeInsight.hints.presentation.RoundWithBackgroundPresentation
+- com.intellij.codeInsight.hints.presentation.AbstractRoundWithBackgroundPresentation
+- <init>(com.intellij.codeInsight.hints.presentation.InlayPresentation,I,I,java.awt.Color,F):V
+- b:<init>(com.intellij.codeInsight.hints.presentation.InlayPresentation,I,I,java.awt.Color,F,I,kotlin.jvm.internal.DefaultConstructorMarker):V
+- getArcHeight():I
+- getArcWidth():I
 f:com.intellij.codeInsight.intention.impl.IntentionActionWithTextCaching
 - com.intellij.codeInsight.intention.IntentionActionDelegate
 - com.intellij.openapi.actionSystem.ShortcutProvider
@@ -666,6 +685,11 @@ com.intellij.ide.fileTemplates.CreateFromTemplateHandler
 - a:isNameRequired():Z
 - a:prepareProperties(java.util.Map):V
 - prepareProperties(java.util.Map,java.lang.String,com.intellij.ide.fileTemplates.FileTemplate,com.intellij.openapi.project.Project):V
+f:com.intellij.ide.fileTemplates.VelocityWrapper
+- sf:INTROSPECTION_SECURE_UBERSPECTOR:java.lang.String
+- sf:INTROSPECTOR_RESTRICT_CLASSES:java.lang.String
+- sf:INTROSPECTOR_RESTRICT_PACKAGES:java.lang.String
+- <init>():V
 f:com.intellij.ide.fileTemplates.impl.FileTemplateManagerImpl
 - getDefaultContextMap():java.util.Map
 com.intellij.ide.highlighter.custom.CustomHighlighterColors
@@ -1083,6 +1107,8 @@ com.intellij.psi.templateLanguages.MultipleLangCommentProvider
 - sf:EP_NAME:com.intellij.openapi.extensions.ExtensionPointName
 - a:canProcess(com.intellij.psi.PsiFile,com.intellij.psi.FileViewProvider):Z
 - a:getLineCommenter(com.intellij.psi.PsiFile,com.intellij.openapi.editor.Editor,com.intellij.lang.Language,com.intellij.lang.Language):com.intellij.lang.Commenter
+c:com.intellij.refactoring.actions.RenameElementAction
+- com.intellij.openapi.project.DumbAwareAction
 com.intellij.refactoring.actions.RenameFileActionProvider
 - sf:EP_NAME:com.intellij.openapi.extensions.ExtensionPointName
 - enabledInProjectView(com.intellij.psi.PsiFile):Z
@@ -1121,6 +1147,7 @@ com.intellij.refactoring.introduce.IntroduceTarget
 - a:render():java.lang.String
 com.intellij.refactoring.move.MoveCallback
 - a:refactoringCompleted():V
+c:com.intellij.refactoring.rename.PlainDirectoryRenameHandler
 c:com.intellij.refactoring.rename.inplace.VariableInplaceRenamer
 - p:checkLocalScope():com.intellij.psi.PsiElement
 com.intellij.refactoring.safeDelete.SafeDeleteDialog$Callback

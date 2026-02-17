@@ -13,7 +13,6 @@ import org.jetbrains.kotlin.analysis.api.resolution.KaInapplicableCallCandidateI
 import org.jetbrains.kotlin.analysis.api.resolution.singleCallOrNull
 import org.jetbrains.kotlin.idea.base.analysis.api.utils.CallParameterInfoProvider
 import org.jetbrains.kotlin.idea.base.projectStructure.languageVersionSettings
-import org.jetbrains.kotlin.idea.completion.KotlinFirCompletionParameters
 import org.jetbrains.kotlin.idea.completion.findValueArgument
 import org.jetbrains.kotlin.idea.completion.impl.k2.contributors.K2ActualDeclarationContributor
 import org.jetbrains.kotlin.idea.completion.impl.k2.contributors.K2CallableCompletionContributor
@@ -35,6 +34,7 @@ import org.jetbrains.kotlin.idea.completion.impl.k2.contributors.K2SameAsFileCla
 import org.jetbrains.kotlin.idea.completion.impl.k2.contributors.K2SuperEntryContributor
 import org.jetbrains.kotlin.idea.completion.impl.k2.contributors.K2SuperMemberCompletionContributor
 import org.jetbrains.kotlin.idea.completion.impl.k2.contributors.K2TrailingFunctionParameterNameCompletionContributorBase
+import org.jetbrains.kotlin.idea.completion.impl.k2.contributors.K2TypeInstantiationContributor
 import org.jetbrains.kotlin.idea.completion.impl.k2.contributors.K2TypeParameterConstraintNameInWhereClauseCompletionContributor
 import org.jetbrains.kotlin.idea.completion.impl.k2.contributors.K2VariableOrParameterNameWithTypeCompletionContributor
 import org.jetbrains.kotlin.idea.completion.impl.k2.contributors.K2WhenWithSubjectConditionContributor
@@ -75,6 +75,7 @@ internal object Completions {
         K2InfixCallableCompletionContributor(),
         K2KDocCallableCompletionContributor(),
         K2VariableOrParameterNameWithTypeCompletionContributor(),
+        K2TypeInstantiationContributor(),
     )
 
     /**

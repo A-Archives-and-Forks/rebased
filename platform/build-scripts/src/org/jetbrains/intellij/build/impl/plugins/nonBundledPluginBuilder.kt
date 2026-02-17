@@ -19,6 +19,7 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.apache.commons.compress.archivers.zip.Zip64Mode
 import org.jetbrains.intellij.build.BuildContext
 import org.jetbrains.intellij.build.BuildOptions
@@ -33,7 +34,6 @@ import org.jetbrains.intellij.build.getUnprocessedPluginXmlContent
 import org.jetbrains.intellij.build.impl.BUILT_IN_HELP_MODULE_NAME
 import org.jetbrains.intellij.build.impl.DescriptorCacheContainer
 import org.jetbrains.intellij.build.impl.DistributionBuilderState
-import org.jetbrains.intellij.build.impl.ModuleOutputPatcher
 import org.jetbrains.intellij.build.impl.NoDuplicateZipArchiveOutputStream
 import org.jetbrains.intellij.build.impl.PLUGIN_LAYOUT_COMPARATOR_BY_MAIN_MODULE
 import org.jetbrains.intellij.build.impl.PluginLayout
@@ -53,13 +53,13 @@ import org.jetbrains.intellij.build.io.archiveDir
 import org.jetbrains.intellij.build.io.writeNewFile
 import org.jetbrains.intellij.build.io.writeNewZipWithoutIndex
 import org.jetbrains.intellij.build.io.zipWithCompression
+import org.jetbrains.intellij.build.productLayout.util.mapConcurrent
 import org.jetbrains.intellij.build.telemetry.TraceManager.spanBuilder
 import org.jetbrains.intellij.build.telemetry.use
 import java.nio.ByteBuffer
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentLinkedQueue
-import kotlin.collections.flatten
 
 internal suspend fun buildNonBundledPlugins(
   pluginsToPublish: Set<PluginLayout>,
@@ -73,7 +73,15 @@ internal suspend fun buildNonBundledPlugins(
 ): List<PluginBuildDescriptor> {
   return context.executeStep(spanBuilder("build non-bundled plugins").setAttribute("count", state.pluginsToPublish.size.toLong()), BuildOptions.NON_BUNDLED_PLUGINS_STEP) {
     buildNonBundledPlugins(
-      scope = this, pluginsToPublish, compressPluginArchive, buildPlatformLibJob, state, searchableOptionSet, isUpdateFromSources, descriptorCacheContainer, context
+      scope = this,
+      pluginsToPublish = pluginsToPublish,
+      compressPluginArchive = compressPluginArchive,
+      buildPlatformLibJob = buildPlatformLibJob,
+      state = state,
+      searchableOptionSet = searchableOptionSet,
+      isUpdateFromSources = isUpdateFromSources,
+      descriptorCacheContainer = descriptorCacheContainer,
+      context = context,
     )
   } ?: emptyList()
 }
@@ -98,11 +106,10 @@ private suspend fun buildNonBundledPlugins(
   }
   else {
     scope.async(CoroutineName("build keymap plugins")) {
-      buildKeymapPlugins(targetDir = context.nonBundledPluginsToBePublished, context)
+      buildKeymapPlugins(targetDir = context.nonBundledPluginsToBePublished, context = context)
     }
   }
 
-  val moduleOutputPatcher = ModuleOutputPatcher()
   val stageDir = nonBundledPluginsStageDir(context)
   NioFiles.deleteRecursively(stageDir)
 
@@ -129,13 +136,12 @@ private suspend fun buildNonBundledPlugins(
     }
 
     buildPlugins(
-      moduleOutputPatcher = moduleOutputPatcher,
       plugins = filteredPlugins,
       os = os,
       arch = arch,
       targetDir = targetDir,
       state = state,
-      buildPlatformJob = buildPlatformLibJob,
+      platformEntriesProvider = buildPlatformLibJob?.let { it::await },
       searchableOptionSet = searchableOptionSet,
       descriptorCacheContainer = descriptorCacheContainer,
       context = context,
@@ -145,8 +151,15 @@ private suspend fun buildNonBundledPlugins(
       }
       else {
         val outputProvider = context.outputProvider
+        val pluginModule = outputProvider.findRequiredModule(plugin.mainModule)
+        var cachedPluginXml: String? = null
+        val pluginXmlSupplier: suspend () -> String = {
+          cachedPluginXml ?: getUnprocessedPluginXmlContent(pluginModule, outputProvider)
+            .decodeToString()
+            .also { cachedPluginXml = it }
+        }
         plugin.versionEvaluator.evaluate(
-          pluginXmlSupplier = { getUnprocessedPluginXmlContent(outputProvider.findRequiredModule(plugin.mainModule), outputProvider).decodeToString() },
+          pluginXmlSupplier = pluginXmlSupplier,
           ideBuildVersion = context.pluginBuildNumber,
           context = context,
         ).pluginVersion
@@ -159,7 +172,9 @@ private suspend fun buildNonBundledPlugins(
         context.nonBundledPlugins
       }
       val destFile = targetDirectory.resolve("${plugin.directoryName}-$pluginVersion.zip")
-      val pluginXml = moduleOutputPatcher.getPatchedPluginXml(plugin.mainModule)
+      val pluginXml = checkNotNull(descriptorCacheContainer.forPlugin(pluginDirOrFile).getCachedFileData(PLUGIN_XML_RELATIVE_PATH)) {
+        "Patched plugin descriptor is not found for module ${plugin.mainModule} in '$pluginDirOrFile'"
+      }
       pluginSpecs.add(PluginRepositorySpec(destFile, pluginXml))
 
       val entries = handleCustomPlatformSpecificAssets(layout = plugin, targetPlatform = null, context = context, pluginDir = pluginDirOrFile, isDevMode = true)
@@ -181,7 +196,7 @@ private suspend fun buildNonBundledPlugins(
               span.addEvent("doesn't exist, skipped", Attributes.of(AttributeKey.stringKey("path"), "$destFile"))
             }
             else {
-              validatePlugin(file = destFile, context = context, span = span)
+              validatePlugin(file = destFile, span = span, context = context)
             }
           }
         }
@@ -199,9 +214,9 @@ private suspend fun buildNonBundledPlugins(
     descriptorCacheContainer.forPlugin(targetDir.resolve(helpPluginLayout.directoryName)).put(PLUGIN_XML_RELATIVE_PATH, helpPlugin.second.encodeToByteArray())
     val spec = buildHelpPlugin(
       helpPluginLayout = helpPluginLayout,
+      pluginXml = helpPlugin.second,
       pluginsToPublishDir = stageDir,
       targetDir = targetDir,
-      moduleOutputPatcher = moduleOutputPatcher,
       state = state,
       searchableOptionSetDescriptor = searchableOptionSet,
       descriptorCacheContainer = descriptorCacheContainer,
@@ -326,7 +341,9 @@ private fun archivePlugin(optimized: Boolean, target: Path, compress: Boolean, s
 
 private suspend fun buildKeymapPlugins(targetDir: Path, context: BuildContext): List<Pair<Path, ByteArray>> {
   val keymapDir = context.paths.communityHomeDir.resolve("platform/platform-resources/src/keymaps")
-  Files.createDirectories(targetDir)
+  withContext(Dispatchers.IO) {
+    Files.createDirectories(targetDir)
+  }
   return spanBuilder("build keymap plugins").use(Dispatchers.IO) {
     listOf(
       arrayOf("Mac OS X", "Mac OS X 10.5+"),
@@ -335,12 +352,12 @@ private suspend fun buildKeymapPlugins(targetDir: Path, context: BuildContext): 
       arrayOf("Default for XWin"),
       arrayOf("Emacs"),
       arrayOf("Sublime Text", "Sublime Text (Mac OS X)"),
-    ).map {
-      async(CoroutineName("build keymap plugin for ${it[0]}")) {
-        buildKeymapPlugin(keymaps = it, buildNumber = context.buildNumber, targetDir = targetDir, keymapDir = keymapDir)
+    ).mapConcurrent { keymaps ->
+      withContext(CoroutineName("build keymap plugin for ${keymaps[0]}")) {
+        buildKeymapPlugin(keymaps = keymaps, buildNumber = context.buildNumber, targetDir = targetDir, keymapDir = keymapDir)
       }
     }
-  }.map { it.getCompleted() }
+  }
 }
 
 /**
@@ -366,7 +383,7 @@ private fun buildBlockMap(file: Path, json: JSON) {
   }
 }
 
-private fun validatePlugin(file: Path, context: BuildContext, span: Span) {
+private fun validatePlugin(file: Path, span: Span, context: BuildContext) {
   val pluginManager = IdePluginManager.createManager()
   val result = pluginManager.createPlugin(pluginFile = file, validateDescriptor = true)
   // todo fix AddStatisticsEventLogListenerTemporary
@@ -374,7 +391,7 @@ private fun validatePlugin(file: Path, context: BuildContext, span: Span) {
     is PluginCreationSuccess -> result.plugin.pluginId
     is PluginCreationFail -> (pluginManager.createPlugin(pluginFile = file, validateDescriptor = false) as? PluginCreationSuccess)?.plugin?.pluginId
   }
-  for (problem in context.productProperties.validatePlugin(id, result, context)) {
+  for (problem in context.productProperties.validatePlugin(id, result)) {
     val problemType = problem::class.java.simpleName
     span.addEvent(
       "plugin validation failed", Attributes.of(
@@ -392,9 +409,9 @@ private fun validatePlugin(file: Path, context: BuildContext, span: Span) {
 
 private suspend fun buildHelpPlugin(
   helpPluginLayout: PluginLayout,
+  pluginXml: String,
   pluginsToPublishDir: Path,
   targetDir: Path,
-  moduleOutputPatcher: ModuleOutputPatcher,
   state: DistributionBuilderState,
   descriptorCacheContainer: DescriptorCacheContainer,
   searchableOptionSetDescriptor: SearchableOptionSetDescriptor?,
@@ -405,13 +422,12 @@ private suspend fun buildHelpPlugin(
   spanBuilder("build help plugin").setAttribute("dir", directory).use {
     val targetDir = pluginsToPublishDir.resolve(directory)
     buildPlugins(
-      moduleOutputPatcher = moduleOutputPatcher,
       plugins = listOf(helpPluginLayout),
       os = null,
       arch = null,
       targetDir = targetDir,
       state = state,
-      buildPlatformJob = null,
+      platformEntriesProvider = null,
       searchableOptionSet = searchableOptionSetDescriptor,
       descriptorCacheContainer = descriptorCacheContainer,
       context = context
@@ -419,5 +435,5 @@ private suspend fun buildHelpPlugin(
     zipWithCompression(targetFile = destFile, dirs = mapOf(targetDir to ""))
     null
   }
-  return PluginRepositorySpec(pluginZip = destFile, pluginXml = moduleOutputPatcher.getPatchedPluginXml(helpPluginLayout.mainModule))
+  return PluginRepositorySpec(pluginZip = destFile, pluginXml = pluginXml.encodeToByteArray())
 }

@@ -16,6 +16,7 @@
     <module name="intellij.python.hatch"/>
     <module name="intellij.python.pydev"/>
     <module name="intellij.python.sdk.ui"/>
+    <module name="intellij.python.externalIndex"/>
     <module name="intellij.regexp"/>
     <module name="intellij.libraries.kotlinx.io"/>
     <module name="intellij.python.pyproject"/>
@@ -31,6 +32,7 @@
   <resource-bundle>messages.PyBundle</resource-bundle>
 
   <extensions defaultExtensionNs="com.intellij">
+    <python.pyproject.model.moduleDataTransfer implementation="com.jetbrains.python.run.PyRunConfigTransfer"/>
     <localInspection language="TOML" enabledByDefault="true"
                      implementationClass="com.jetbrains.python.sdk.poetry.PoetryPackageVersionsInspection"
                      key="INSP.poetry.package.versions.display.name" bundle="messages.PyBundle" groupKey="INSP.GROUP.python"
@@ -527,6 +529,7 @@
     <consoleHistoryModelProvider implementation="com.jetbrains.python.console.PyConsoleHistoryModelProvider"/>
     <scratch.rootType implementation="com.jetbrains.python.console.PyConsoleRootType"/>
     <consoleFilterProvider implementation="com.jetbrains.python.run.PyMessageFilterProvider"/>
+    <consoleFilterProvider implementation="com.jetbrains.python.run.AstralConsoleFilterProvider"/>
 
     <!-- Run Anything -->
     <runAnything.executionProvider order="after RunAnythingRunConfigurationProvider"

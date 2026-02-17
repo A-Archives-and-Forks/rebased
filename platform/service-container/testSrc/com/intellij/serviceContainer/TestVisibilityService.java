@@ -14,4 +14,3 @@ public class TestVisibilityService {
 
   String callPrivate() { return privateMethod(); }
 }
-

@@ -8,6 +8,7 @@ import com.intellij.util.io.Compressor
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.context.Context
 import io.opentelemetry.extension.kotlin.asContextElement
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
@@ -126,7 +127,6 @@ internal suspend fun buildDistribution(
       isUpdateFromSources = isUpdateFromSources,
       buildPlatformJob = buildPlatformJob,
       searchableOptionSetDescriptor = searchableOptionSet,
-      moduleOutputPatcher = moduleOutputPatcher,
       descriptorCacheContainer = platformLayout.descriptorCacheContainer,
       context = context,
     )
@@ -160,7 +160,7 @@ internal suspend fun buildDistribution(
   contentReport
 }
 
-private fun generateCoreClassPath(
+private suspend fun generateCoreClassPath(
   platformLayout: PlatformLayout,
   context: BuildContext,
   platformDistribution: List<DistributionFileEntry>,
@@ -211,7 +211,6 @@ suspend fun testBuildBundledPluginsForAllPlatforms(
   state: DistributionBuilderState,
   pluginLayouts: Set<PluginLayout>,
   buildPlatformJob: Deferred<List<DistributionFileEntry>>,
-  moduleOutputPatcher: ModuleOutputPatcher,
   descriptorCacheContainer: DescriptorCacheContainer,
   context: BuildContext,
 ): List<DistFile> {
@@ -223,7 +222,6 @@ suspend fun testBuildBundledPluginsForAllPlatforms(
     isUpdateFromSources = false,
     searchableOptionSetDescriptor = null,
     descriptorCacheContainer = descriptorCacheContainer,
-    moduleOutputPatcher = moduleOutputPatcher,
   )
   return context.getDistFiles(os = null, arch = null, libcImpl = null).filter { it.relativePath == PLUGIN_CLASSPATH }
 }
@@ -250,7 +248,6 @@ suspend fun buildBundledPluginsAsStandaloneTask(
     isUpdateFromSources = false,
     buildPlatformJob = CompletableDeferred(platformContent),
     searchableOptionSet = searchableOptionSetDescriptor,
-    moduleOutputPatcher = ModuleOutputPatcher(),
     descriptorCacheContainer = state.platformLayout.descriptorCacheContainer,
     context = context,
   )
@@ -320,6 +317,32 @@ fun getPluginLayoutsByJpsModuleNames(modules: Collection<String>, productLayout:
   return result
 }
 
+/**
+ * Collects executable file patterns from bundled plugins for a specific platform distribution.
+ * Returns patterns relative to distribution root (e.g., "plugins/plugin-name/bin/script.sh").
+ */
+internal fun collectPluginExecutablePatterns(
+  context: BuildContext,
+  os: OsFamily,
+  arch: JvmArchitecture,
+  libc: LibcImpl
+): Sequence<String> {
+  val productLayout = context.productProperties.productLayout
+  val bundledPluginLayouts = getPluginLayoutsByJpsModuleNames(
+    modules = productLayout.bundledPluginModules,
+    productLayout = productLayout
+  )
+
+  val platformDistribution = SupportedDistribution(os, arch, libc)
+  return bundledPluginLayouts.asSequence()
+    .flatMap { plugin ->
+      val patterns = plugin.executablePatterns[platformDistribution] ?: persistentListOf()
+      patterns.asSequence().map { pattern ->
+        "plugins/${plugin.directoryName}/$pattern"
+      }
+    }
+}
+
 private fun basePath(moduleName: String, outputProvider: ModuleOutputProvider): Path {
   return Path.of(JpsPathUtil.urlToPath(outputProvider.findRequiredModule(moduleName).contentRootsList.urls.first()))
 }
@@ -387,7 +410,7 @@ internal suspend fun layoutPlatformDistribution(
     }
 }
 
-private fun patchKeyMapWithAltClickReassignedToMultipleCarets(moduleOutputPatcher: ModuleOutputPatcher, context: BuildContext) {
+private suspend fun patchKeyMapWithAltClickReassignedToMultipleCarets(moduleOutputPatcher: ModuleOutputPatcher, context: BuildContext) {
   if (!context.productProperties.reassignAltClickToMultipleCarets) {
     return
   }

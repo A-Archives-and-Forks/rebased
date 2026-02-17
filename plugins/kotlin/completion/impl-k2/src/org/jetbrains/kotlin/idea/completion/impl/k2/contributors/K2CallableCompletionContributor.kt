@@ -73,14 +73,6 @@ import org.jetbrains.kotlin.idea.base.analysis.api.utils.resolveToExpandedSymbol
 import org.jetbrains.kotlin.idea.base.psi.isInsideAnnotationEntryArgumentList
 import org.jetbrains.kotlin.idea.codeinsight.utils.canBeUsedAsExtension
 import org.jetbrains.kotlin.idea.codeinsight.utils.isEnum
-import org.jetbrains.kotlin.idea.completion.contributors.helpers.CallableMetadataProvider
-import org.jetbrains.kotlin.idea.completion.contributors.helpers.KtOutsideTowerScopeKinds
-import org.jetbrains.kotlin.idea.completion.contributors.helpers.ShadowedCallablesFilter
-import org.jetbrains.kotlin.idea.completion.contributors.helpers.collectLocalAndMemberNonExtensionsFromScopeContext
-import org.jetbrains.kotlin.idea.completion.contributors.helpers.collectNonExtensionsForType
-import org.jetbrains.kotlin.idea.completion.contributors.helpers.collectNonExtensionsFromScope
-import org.jetbrains.kotlin.idea.completion.contributors.helpers.getAliasNameIfExists
-import org.jetbrains.kotlin.idea.completion.contributors.helpers.staticScope
 import org.jetbrains.kotlin.idea.completion.impl.k2.K2CompletionSectionContext
 import org.jetbrains.kotlin.idea.completion.impl.k2.K2CompletionSetupScope
 import org.jetbrains.kotlin.idea.completion.impl.k2.K2ContributorSectionPriority
@@ -88,14 +80,22 @@ import org.jetbrains.kotlin.idea.completion.impl.k2.K2SimpleCompletionContributo
 import org.jetbrains.kotlin.idea.completion.impl.k2.allowsOnlyNamedArguments
 import org.jetbrains.kotlin.idea.completion.impl.k2.checkers.ApplicableExtension
 import org.jetbrains.kotlin.idea.completion.impl.k2.context.getOriginalDeclarationOrSelf
+import org.jetbrains.kotlin.idea.completion.impl.k2.contributors.helpers.CallableMetadataProvider
+import org.jetbrains.kotlin.idea.completion.impl.k2.contributors.helpers.KtOutsideTowerScopeKinds
+import org.jetbrains.kotlin.idea.completion.impl.k2.contributors.helpers.ShadowedCallablesFilter
+import org.jetbrains.kotlin.idea.completion.impl.k2.contributors.helpers.collectLocalAndMemberNonExtensionsFromScopeContext
+import org.jetbrains.kotlin.idea.completion.impl.k2.contributors.helpers.collectNonExtensionsForType
+import org.jetbrains.kotlin.idea.completion.impl.k2.contributors.helpers.collectNonExtensionsFromScope
+import org.jetbrains.kotlin.idea.completion.impl.k2.contributors.helpers.getAliasNameIfExists
+import org.jetbrains.kotlin.idea.completion.impl.k2.contributors.helpers.staticScope
 import org.jetbrains.kotlin.idea.completion.impl.k2.handlers.WithImportInsertionHandler
 import org.jetbrains.kotlin.idea.completion.impl.k2.isAfterRangeOperator
-import org.jetbrains.kotlin.idea.completion.lookups.CallableInsertionOptions
-import org.jetbrains.kotlin.idea.completion.lookups.CallableInsertionStrategy
-import org.jetbrains.kotlin.idea.completion.lookups.ImportStrategy
-import org.jetbrains.kotlin.idea.completion.lookups.factories.FunctionInsertionHelper
+import org.jetbrains.kotlin.idea.completion.impl.k2.lookups.CallableInsertionOptions
+import org.jetbrains.kotlin.idea.completion.impl.k2.lookups.CallableInsertionStrategy
+import org.jetbrains.kotlin.idea.completion.impl.k2.lookups.ImportStrategy
+import org.jetbrains.kotlin.idea.completion.impl.k2.lookups.factories.FunctionInsertionHelper
+import org.jetbrains.kotlin.idea.completion.impl.k2.weighers.CallableWeigher.callableWeight
 import org.jetbrains.kotlin.idea.completion.reference
-import org.jetbrains.kotlin.idea.completion.weighers.CallableWeigher.callableWeight
 import org.jetbrains.kotlin.idea.core.NotPropertiesService
 import org.jetbrains.kotlin.idea.references.mainReference
 import org.jetbrains.kotlin.idea.util.positionContext.KDocLinkNamePositionContext
@@ -210,6 +210,7 @@ internal abstract class K2AbstractCallableCompletionContributor<P : KotlinNameRe
     ): Sequence<LookupElement> =
         filterIfInsideAnnotationEntryArgument(context.positionContext.position, context.weighingContext.expectedType)
             .mapNotNull(shadowIfNecessary(context, shadowedCallablesFilter))
+            .filter { filterVariadicCallables(it.signature) }
             .filterNot(isUninitializedCallable(context))
             .flatMap { callableWithMetadata ->
                 createCallableLookupElements(
@@ -751,6 +752,18 @@ internal abstract class K2AbstractCallableCompletionContributor<P : KotlinNameRe
             else if (newImportStrategy == null) callableWithMetadata
             else callableWithMetadata.copy(options = insertionOptions.copy(importingStrategy = newImportStrategy))
         }
+    }
+
+    /**
+     * For variadic callables, we want to only allow the representative callable with the lowest number of arguments.
+     * This completion item will then be rendered with a variadic presentation for its parameters.
+     */
+    context(_: KaSession)
+    private fun filterVariadicCallables(signature: KaCallableSignature<*>): Boolean {
+        val variadicCallableId = signature.getVariadicCallable() ?: return true
+        val functionSymbol = signature.symbol as? KaNamedFunctionSymbol ?: return true
+
+        return variadicCallableId.lowestNumberOfArguments == functionSymbol.valueParameters.size
     }
 
     context(_: KaSession)

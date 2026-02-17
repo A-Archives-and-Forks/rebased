@@ -8,7 +8,11 @@ import com.intellij.ide.AppLifecycleListener
 import com.intellij.ide.actions.DistractionFreeModeController
 import com.intellij.ide.plugins.PluginManagerCore
 import com.intellij.ide.plugins.cl.PluginAwareClassLoader
-import com.intellij.ide.ui.*
+import com.intellij.ide.ui.IconMapLoader
+import com.intellij.ide.ui.LafManager
+import com.intellij.ide.ui.NotPatchedIconRegistry
+import com.intellij.ide.ui.NotRoamableUiSettings
+import com.intellij.ide.ui.UISettings
 import com.intellij.ide.ui.laf.darcula.DarculaLaf
 import com.intellij.ide.util.PropertiesComponent
 import com.intellij.openapi.application.ApplicationInfo
@@ -24,7 +28,6 @@ import com.intellij.openapi.util.IconPathPatcher
 import com.intellij.openapi.util.SystemInfo
 import com.intellij.openapi.util.registry.EarlyAccessRegistryManager
 import com.intellij.ui.ExperimentalUI.Companion.isNewUI
-import com.intellij.util.PlatformUtils
 import java.util.concurrent.atomic.AtomicBoolean
 
 private val LOG: Logger
@@ -162,18 +165,6 @@ internal class ExperimentalUIImpl : ExperimentalUI() {
  */
 private class ExperimentalUiAppLifecycleListener : AppLifecycleListener {
 
-  override fun appFrameCreated(commandLineArgs: List<String?>) {
-    if (ExperimentalUI.switchedFromClassicToIslandsInSession) {
-      ExperimentalUI.switchedFromClassicToIslandsInSession = false
-
-      val settings = UISettings.getInstance()
-      if (!PlatformUtils.isDataGrip()) {
-        settings.mainMenuDisplayMode = MainMenuDisplayMode.MERGED_WITH_MAIN_TOOLBAR
-      }
-      settings.compactMode = true
-    }
-  }
-
   override fun appStarted() {
     (ExperimentalUI.getInstance() as? ExperimentalUIImpl)?.appStarted()
   }
@@ -222,6 +213,7 @@ private const val iconPathPrefix = "expui/"
 private fun createPathPatcher(paths: Map<ClassLoader, Map<String, String>>): IconPathPatcher {
   return object : IconPathPatcher() {
     private val dumpNotPatchedIcons = System.getProperty("ide.experimental.ui.dump.not.patched.icons").toBoolean()
+
     // https://youtrack.jetbrains.com/issue/IDEA-335974
     private val useReflectivePath
       get() = System.getProperty("ide.experimental.ui.use.reflective.path", "true").toBoolean()
