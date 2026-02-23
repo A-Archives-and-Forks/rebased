@@ -676,6 +676,10 @@
                             implementationClass="com.intellij.codeInsight.completion.ReferenceBasedCompletionContributor"/>
     <completion.contributor language="any" id="commands" order="first, after liveTemplates"
                             implementationClass="com.intellij.codeInsight.completion.command.CommandCompletionContributor"/>
+
+    <modcompletion.completionItemProvider language="any" implementationClass="com.intellij.codeInsight.template.impl.LiveTemplateModCompletionItemProvider"
+                                          id="liveTemplates" order="first"/>
+
     <codeCompletionConfigurable provider="com.intellij.codeInsight.completion.command.configuration.CommandCompletionConfigurableProvider"/>
 
     <applicationService serviceImplementation="com.intellij.execution.console.ConsoleFoldingSettings"/>
@@ -1596,7 +1600,8 @@
 
     <registryKey defaultValue="2000"
                  description="Amount in milliseconds to wait for completion contributors till decide whether to insert the single item"
-                 key="ide.completion.auto.insert.item.timeout"/>
+                 key="ide.completion.auto.insert.item.timeout"
+                 restartRequired="true"/>
     <registryKey key="ide.completion.command.force.enabled" defaultValue="false"
                  description="Enable experimental support command completion" restartRequired="false"/>
     <registryKey key="ide.completion.command.faster.paint" defaultValue="true"

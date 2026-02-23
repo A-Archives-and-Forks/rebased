@@ -7,7 +7,6 @@ import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.intellij.agent.workbench.codex.common.CodexThread
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.theme.simpleListItemStyle
 import org.jetbrains.jewel.ui.theme.treeStyle
@@ -16,12 +15,12 @@ import kotlin.math.max
 import kotlin.math.roundToLong
 
 @Composable
-internal fun threadIndicatorColor(thread: CodexThread): Color {
-  // TODO: map thread status to indicator color once status is available.
-  return if (thread.archived) {
-    JewelTheme.globalColors.text.disabled
-  } else {
-    JewelTheme.globalColors.text.info.copy(alpha = 0.8f)
+internal fun threadIndicatorColor(thread: AgentSessionThread): Color {
+  return when (thread.activity) {
+    AgentSessionActivity.UNREAD -> Color(0xFF4DA3FF)
+    AgentSessionActivity.REVIEWING -> Color(0xFF2FD1C4)
+    AgentSessionActivity.PROCESSING -> Color(0xFFFF9F43)
+    AgentSessionActivity.READY -> Color(0xFF3FE47E)
   }
 }
 
@@ -117,7 +116,7 @@ private fun rowHoverBase(): Color {
 internal fun formatRelativeTimeShort(timestamp: Long, now: Long): String {
   val absSeconds = abs(((timestamp - now) / 1000.0).roundToLong())
   if (absSeconds < 60) {
-    return CodexSessionsBundle.message("toolwindow.time.now")
+    return AgentSessionsBundle.message("toolwindow.time.now")
   }
   if (absSeconds < 60 * 60) {
     val value = max(1, (absSeconds / 60.0).roundToLong())

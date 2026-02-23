@@ -29,12 +29,14 @@ import com.intellij.vcs.log.impl.VcsLogUiProperties
 import com.intellij.vcs.log.impl.VcsProjectLog
 import com.intellij.vcs.log.ui.MainVcsLogUi
 import com.intellij.vcsUtil.VcsUtil
+import git4idea.GitOperationsCollector.REMOTE_CHECK_STRATEGY
 import git4idea.branch.GitBranchUtil
 import git4idea.commands.Git
 import git4idea.commands.GitCommand
 import git4idea.commands.GitLineHandler
 import git4idea.config.GitConfigUtil
 import git4idea.config.GitExecutableManager
+import git4idea.config.GitIncomingRemoteCheckStrategy
 import git4idea.config.GitSaveChangesPolicy
 import git4idea.config.GitVcsApplicationSettings
 import git4idea.config.GitVcsSettings
@@ -49,7 +51,6 @@ import git4idea.statistics.GitCommitterCounter
 import git4idea.statistics.RepositoryAvailability
 import git4idea.ui.branch.dashboard.CHANGE_LOG_FILTER_ON_BRANCH_SELECTION_PROPERTY
 import git4idea.ui.branch.dashboard.SHOW_GIT_BRANCHES_LOG_PROPERTY
-import org.jetbrains.annotations.NonNls
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Period
@@ -58,7 +59,7 @@ import kotlin.io.path.isDirectory
 import kotlin.io.path.isRegularFile
 
 internal class GitStatisticsCollector : ProjectUsagesCollector() {
-  private val GROUP = EventLogGroup("git.configuration", 23)
+  private val GROUP = EventLogGroup("git.configuration", 24)
 
   override fun getGroup(): EventLogGroup = GROUP
 
@@ -77,6 +78,7 @@ internal class GitStatisticsCollector : ProjectUsagesCollector() {
     addIfDiffers(set, settings, defaultSettings, { it.syncSetting }, REPO_SYNC, REPO_SYNC_VALUE)
     addIfDiffers(set, settings, defaultSettings, { it.updateMethod }, UPDATE_TYPE, UPDATE_TYPE_VALUE)
     addIfDiffers(set, settings, defaultSettings, { it.saveChangesPolicy }, SAVE_POLICY, SAVE_POLICY_VALUE)
+    addIfDiffers(set, settings, defaultSettings, { it.incomingCommitsCheckStrategy }, INCOMING_COMMITS_CHECK_STRATEGY, GitOperationsCollector.REMOTE_CHECK_STRATEGY)
 
     addBoolIfDiffers(set, settings, defaultSettings, { it.autoUpdateIfPushRejected() }, PUSH_AUTO_UPDATE)
     addBoolIfDiffers(set, settings, defaultSettings, { it.warnAboutCrlf() }, WARN_CRLF)
@@ -231,6 +233,11 @@ internal class GitStatisticsCollector : ProjectUsagesCollector() {
 
   private val SAVE_POLICY_VALUE = EventFields.Enum("value", GitSaveChangesPolicy::class.java) { it.name.lowercase() }
   private val SAVE_POLICY = GROUP.registerVarargEvent("save.policy", SAVE_POLICY_VALUE)
+
+  private val INCOMING_COMMITS_CHECK_STRATEGY =
+    GROUP.registerVarargEvent("incoming_commits_check_strategy",
+                              "Non-default value for incoming commits check strategy",
+                              REMOTE_CHECK_STRATEGY)
 
   private val PUSH_AUTO_UPDATE = GROUP.registerVarargEvent("push.autoupdate", EventFields.Enabled)
 
@@ -430,12 +437,7 @@ private fun GitRepository.detectRefFormat(): RefFormat {
   return RefFormat.UNKNOWN
 }
 
-
-private data class RoundedUserCountEventField(
-  override val name: String,
-  @NonNls override val description: String? = null,
-) : PrimitiveEventField<Int>() {
-
+private data class RoundedUserCountEventField(override val name: String) : PrimitiveEventField<Int>() {
   override val validationRule: List<String>
     get() = listOf("{regexp#integer}")
 
