@@ -408,7 +408,10 @@ com.intellij.codeInsight.template.impl.DefaultLiveTemplatesProvider
 - sf:EP_NAME:com.intellij.openapi.extensions.ExtensionPointName
 - a:getDefaultLiveTemplateFiles():java.lang.String[]
 - a:getHiddenLiveTemplateFiles():java.lang.String[]
+f:com.intellij.codeInsight.template.impl.ListTemplatesHandler
+- s:filterTemplatesByPrefix(java.util.Collection,com.intellij.openapi.editor.Document,I,Z,Z):java.util.Map
 f:com.intellij.codeInsight.template.impl.TemplateManagerImpl
+- s:updateTemplate(com.intellij.codeInsight.template.impl.TemplateImpl,com.intellij.modcommand.ModPsiUpdater):V
 com.intellij.codeInsight.template.postfix.templates.PostfixTemplateExpressionSelector
 - a:getExpressions(com.intellij.psi.PsiElement,com.intellij.openapi.editor.Document,I):java.util.List
 - a:getRenderer():com.intellij.util.Function
@@ -744,19 +747,17 @@ com.intellij.ide.util.PsiElementRenderingInfo
 com.intellij.ide.util.TypeVisibilityStateHolder
 - a:isVisible(java.lang.Object):Z
 - a:setVisible(java.lang.Object,Z):V
-com.intellij.ide.util.gotoByName.ChooseByNameContributorWithDisposableCleanup
-- com.intellij.navigation.ChooseByNameContributorEx2
-- processElementsWithName(java.lang.String,com.intellij.util.Processor,com.intellij.util.indexing.FindSymbolParameters):V
-- a:processElementsWithNameWithDisposable(com.intellij.openapi.Disposable,java.lang.String,com.intellij.util.Processor,com.intellij.util.indexing.FindSymbolParameters):V
-- processNames(com.intellij.util.Processor,com.intellij.psi.search.GlobalSearchScope,com.intellij.util.indexing.IdFilter):V
-- processNames(com.intellij.util.Processor,com.intellij.util.indexing.FindSymbolParameters):V
-- a:processNamesWithDisposable(com.intellij.openapi.Disposable,com.intellij.util.Processor,com.intellij.util.indexing.FindSymbolParameters):V
 com.intellij.ide.util.gotoByName.ChooseByNameItem
 - a:getDescription():java.lang.String
 - a:getName():java.lang.String
 com.intellij.ide.util.gotoByName.ChooseByNameItemProvider
 - a:filterElements(com.intellij.ide.util.gotoByName.ChooseByNameViewModel,java.lang.String,Z,com.intellij.openapi.progress.ProgressIndicator,com.intellij.util.Processor):Z
 - a:filterNames(com.intellij.ide.util.gotoByName.ChooseByNameViewModel,java.lang.String[],java.lang.String):java.util.List
+com.intellij.ide.util.gotoByName.ChooseByNameMatcherFactory
+- sf:Companion:com.intellij.ide.util.gotoByName.ChooseByNameMatcherFactory$Companion
+- a:createMatcher(java.lang.String,Z):com.intellij.psi.codeStyle.MinusculeMatcher
+f:com.intellij.ide.util.gotoByName.ChooseByNameMatcherFactory$Companion
+- f:tryGetInstance():com.intellij.ide.util.gotoByName.ChooseByNameMatcherFactory
 com.intellij.ide.util.gotoByName.ChooseByNameModelEx
 - com.intellij.ide.util.gotoByName.ChooseByNameModel
 - s:getItemProvider(com.intellij.ide.util.gotoByName.ChooseByNameModel,com.intellij.psi.PsiElement):com.intellij.ide.util.gotoByName.ChooseByNameItemProvider
@@ -774,6 +775,8 @@ com.intellij.ide.util.gotoByName.ChooseByNameWeightedItemProvider
 - a:filterElementsWithWeights(com.intellij.ide.util.gotoByName.ChooseByNameViewModel,java.lang.String,Z,com.intellij.openapi.progress.ProgressIndicator,com.intellij.util.Processor):Z
 com.intellij.ide.util.gotoByName.CustomMatcherModel
 - a:matches(java.lang.String,java.lang.String):Z
+c:com.intellij.ide.util.gotoByName.DefaultChooseByNameItemProvider
+- ps:matches(com.intellij.ide.util.gotoByName.ChooseByNameViewModel,java.lang.String,com.intellij.psi.codeStyle.MinusculeMatcher,java.lang.String,com.intellij.psi.codeStyle.MinusculeMatcher,java.lang.String):com.intellij.ide.util.gotoByName.MatchResult
 a:com.intellij.ide.util.gotoByName.DisposableGotoModelWithPersistentFilter
 - com.intellij.ide.util.gotoByName.FilteringGotoByModel
 - com.intellij.openapi.Disposable$Default
@@ -1134,7 +1137,7 @@ c:com.intellij.refactoring.extractMethod.AbstractExtractMethodDialog
 - pf:myDecorator:com.intellij.refactoring.extractMethod.ExtractMethodDecorator
 - pf:myFragment:com.intellij.codeInsight.codeFragment.CodeFragment
 - pf:myProject:com.intellij.openapi.project.Project
-- p:mySignaturePreviewTextArea:com.intellij.refactoring.ui.MethodSignatureComponent
+- pf:mySignaturePreviewTextArea:com.intellij.refactoring.ui.MethodSignatureComponent
 - pf:myValidator:com.intellij.refactoring.extractMethod.ExtractMethodValidator
 - p:myVariableData:com.intellij.refactoring.util.AbstractVariableData[]
 - p:getParameterColumns():com.intellij.util.ui.ColumnInfo[]

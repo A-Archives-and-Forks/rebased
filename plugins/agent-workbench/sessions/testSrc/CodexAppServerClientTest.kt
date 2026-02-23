@@ -1,7 +1,9 @@
 // Copyright 2000-2026 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package com.intellij.agent.workbench.sessions
 
+import com.intellij.agent.workbench.codex.common.CodexAppServerClient
 import com.intellij.agent.workbench.codex.common.CodexAppServerException
+import com.intellij.agent.workbench.codex.common.CodexCliNotFoundException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
@@ -43,54 +45,14 @@ class CodexAppServerClientTest {
   }
 
   @Test
-  fun listThreadsUsesWorkingDirectory(): Unit = runBlocking(Dispatchers.IO) {
-    val workingDir = tempDir.resolve("project-a")
-    Files.createDirectories(workingDir)
-    val configPath = workingDir.resolve("codex-config.json")
-    writeConfig(
-      path = configPath,
-      threads = listOf(
-        ThreadSpec(
-          id = "thread-1",
-          title = "Thread One",
-          cwd = workingDir.toString(),
-          updatedAt = 1_700_000_000_000L,
-          archived = false,
-        ),
-      )
-    )
-    val backendDir = tempDir.resolve("backend-a")
-    Files.createDirectories(backendDir)
-    val markerName = ".codex-test-cwd"
-    val client = createMockClient(
-      scope = this,
-      tempDir = backendDir,
-      configPath = configPath,
-      workingDirectory = workingDir,
-      environmentOverrides = mapOf("CODEX_TEST_CWD_MARKER" to markerName),
-    )
-    try {
-      client.listThreads(archived = false)
-    }
-    finally {
-      client.shutdown()
-    }
-    val markerPath = workingDir.resolve(markerName)
-    assertThat(markerPath).exists()
-    val recorded = Files.readString(markerPath).trim()
-    assertThat(Path.of(recorded).toRealPath()).isEqualTo(workingDir.toRealPath())
-  }
-
-  @Test
-  fun listThreadsUsesSeparateAppServersPerProject(): Unit = runBlocking(Dispatchers.IO) {
+  fun listThreadsFiltersThreadsByCwdFilter(): Unit = runBlocking(Dispatchers.IO) {
     val projectA = tempDir.resolve("project-alpha")
     val projectB = tempDir.resolve("project-beta")
     Files.createDirectories(projectA)
     Files.createDirectories(projectB)
-    val configA = projectA.resolve("codex-config.json")
-    val configB = projectB.resolve("codex-config.json")
+    val configPath = tempDir.resolve("codex-config.json")
     writeConfig(
-      path = configA,
+      path = configPath,
       threads = listOf(
         ThreadSpec(
           id = "alpha-1",
@@ -99,11 +61,6 @@ class CodexAppServerClientTest {
           updatedAt = 1_700_000_000_000L,
           archived = false,
         ),
-      ),
-    )
-    writeConfig(
-      path = configB,
-      threads = listOf(
         ThreadSpec(
           id = "beta-1",
           title = "Beta",
@@ -113,31 +70,23 @@ class CodexAppServerClientTest {
         ),
       ),
     )
-    val backendA = tempDir.resolve("backend-alpha")
-    val backendB = tempDir.resolve("backend-beta")
-    Files.createDirectories(backendA)
-    Files.createDirectories(backendB)
-    val clientA = createMockClient(
+    val backendDir = tempDir.resolve("backend-cwd")
+    Files.createDirectories(backendDir)
+    val client = createMockClient(
       scope = this,
-      tempDir = backendA,
-      configPath = configA,
-      workingDirectory = projectA,
-    )
-    val clientB = createMockClient(
-      scope = this,
-      tempDir = backendB,
-      configPath = configB,
-      workingDirectory = projectB,
+      tempDir = backendDir,
+      configPath = configPath,
     )
     try {
-      val threadsA = clientA.listThreads(archived = false)
-      val threadsB = clientB.listThreads(archived = false)
+      val threadsA = client.listThreads(archived = false, cwdFilter = projectA.toString().replace('\\', '/').trimEnd('/'))
+      val threadsB = client.listThreads(archived = false, cwdFilter = projectB.toString().replace('\\', '/').trimEnd('/'))
+      val threadsAll = client.listThreads(archived = false)
       assertThat(threadsA.map { it.id }).containsExactly("alpha-1")
       assertThat(threadsB.map { it.id }).containsExactly("beta-1")
+      assertThat(threadsAll.map { it.id }).containsExactlyInAnyOrder("alpha-1", "beta-1")
     }
     finally {
-      clientA.shutdown()
-      clientB.shutdown()
+      client.shutdown()
     }
   }
 
@@ -162,14 +111,14 @@ class CodexAppServerClientTest {
       scope = this,
       tempDir = backendDir,
       configPath = configPath,
-      workingDirectory = workingDir,
     )
     try {
-      val first = client.listThreadsPage(archived = false, cursor = null, limit = 2)
+      val cwdFilter = workingDir.toString().replace('\\', '/').trimEnd('/')
+      val first = client.listThreadsPage(archived = false, cursor = null, limit = 2, cwdFilter = cwdFilter)
       assertThat(first.threads.map { it.id }).containsExactly("thread-1", "thread-2")
       assertThat(first.nextCursor).isEqualTo("2")
 
-      val second = client.listThreadsPage(archived = false, cursor = first.nextCursor, limit = 2)
+      val second = client.listThreadsPage(archived = false, cursor = first.nextCursor, limit = 2, cwdFilter = cwdFilter)
       assertThat(second.threads.map { it.id }).containsExactly("thread-3", "thread-4")
       assertThat(second.nextCursor).isEqualTo("4")
     }
@@ -211,10 +160,10 @@ class CodexAppServerClientTest {
       scope = this,
       tempDir = backendDir,
       configPath = configPath,
-      workingDirectory = workingDir,
     )
     try {
-      val threads = client.listThreads(archived = false)
+      val cwdFilter = workingDir.toString().replace('\\', '/').trimEnd('/')
+      val threads = client.listThreads(archived = false, cwdFilter = cwdFilter)
       val threadsById = threads.associateBy { it.id }
       val previewThread = threadsById.getValue("thread-preview")
       assertThat(previewThread.updatedAt).isEqualTo(1_700_000_000_000L)
@@ -231,16 +180,13 @@ class CodexAppServerClientTest {
 
   @Test
   fun listThreadsFailsOnServerError(): Unit = runBlocking(Dispatchers.IO) {
-    val workingDir = tempDir.resolve("project-error")
-    Files.createDirectories(workingDir)
-    val configPath = workingDir.resolve("codex-config.json")
+    val configPath = tempDir.resolve("codex-config.json")
     writeConfig(
       path = configPath,
       threads = listOf(
         ThreadSpec(
           id = "thread-err",
           title = "Thread",
-          cwd = workingDir.toString(),
           updatedAt = 1_700_000_000_000L,
           archived = false,
         ),
@@ -252,7 +198,6 @@ class CodexAppServerClientTest {
       scope = this,
       tempDir = backendDir,
       configPath = configPath,
-      workingDirectory = workingDir,
       environmentOverrides = mapOf(
         "CODEX_TEST_ERROR_METHOD" to "thread/list",
         "CODEX_TEST_ERROR_MESSAGE" to "boom",
@@ -266,49 +211,6 @@ class CodexAppServerClientTest {
       catch (e: CodexAppServerException) {
         assertThat(e.message).contains("boom")
       }
-    }
-    finally {
-      client.shutdown()
-    }
-  }
-
-  @Test
-  fun listThreadsFiltersByCwd(): Unit = runBlocking(Dispatchers.IO) {
-    val projectA = tempDir.resolve("project-cwd-a")
-    val projectB = tempDir.resolve("project-cwd-b")
-    Files.createDirectories(projectA)
-    Files.createDirectories(projectB)
-    val configPath = tempDir.resolve("codex-config.json")
-    writeConfig(
-      path = configPath,
-      threads = listOf(
-        ThreadSpec(
-          id = "thread-a",
-          title = "Alpha",
-          cwd = projectA.toString(),
-          updatedAt = 1_700_000_000_000L,
-          archived = false,
-        ),
-        ThreadSpec(
-          id = "thread-b",
-          title = "Beta",
-          cwd = projectB.toString(),
-          updatedAt = 1_700_000_100_000L,
-          archived = false,
-        ),
-      ),
-    )
-    val backendDir = tempDir.resolve("backend-cwd")
-    Files.createDirectories(backendDir)
-    val client = createMockClient(
-      scope = this,
-      tempDir = backendDir,
-      configPath = configPath,
-      workingDirectory = projectA,
-    )
-    try {
-      val threads = client.listThreads(archived = false)
-      assertThat(threads.map { it.id }).containsExactly("thread-a")
     }
     finally {
       client.shutdown()
@@ -338,7 +240,6 @@ class CodexAppServerClientTest {
       scope = this,
       tempDir = backendDir,
       configPath = configPath,
-      workingDirectory = workingDir,
     )
     try {
       val created = client.createThread()
@@ -356,10 +257,57 @@ class CodexAppServerClientTest {
   }
 
   @Test
-  fun createThreadFailsOnServerError(): Unit = runBlocking(Dispatchers.IO) {
-    val workingDir = tempDir.resolve("project-start-error")
+  fun createThreadWithParamsPassesThemThrough(): Unit = runBlocking(Dispatchers.IO) {
+    val workingDir = tempDir.resolve("project-start-params")
     Files.createDirectories(workingDir)
     val configPath = workingDir.resolve("codex-config.json")
+    writeConfig(path = configPath, threads = emptyList())
+
+    val backendDir = tempDir.resolve("backend-start-params")
+    Files.createDirectories(backendDir)
+    val client = createMockClient(
+      scope = this,
+      tempDir = backendDir,
+      configPath = configPath,
+    )
+    try {
+      val created = client.createThread(
+        cwd = workingDir.toString(),
+        approvalPolicy = "on-request",
+        sandbox = "workspace-write",
+      )
+      assertThat(created.id).startsWith("thread-start-")
+      assertThat(created.archived).isFalse()
+    }
+    finally {
+      client.shutdown()
+    }
+  }
+
+  @Test
+  fun persistThreadSendsTurnStartAndCancel(): Unit = runBlocking(Dispatchers.IO) {
+    val configPath = tempDir.resolve("codex-config.json")
+    writeConfig(path = configPath, threads = emptyList())
+
+    val backendDir = tempDir.resolve("backend-persist")
+    Files.createDirectories(backendDir)
+    val client = createMockClient(
+      scope = this,
+      tempDir = backendDir,
+      configPath = configPath,
+    )
+    try {
+      val created = client.createThread()
+      client.persistThread(created.id)
+    }
+    finally {
+      client.shutdown()
+    }
+  }
+
+  @Test
+  fun createThreadFailsOnServerError(): Unit = runBlocking(Dispatchers.IO) {
+    val configPath = tempDir.resolve("codex-config.json")
     writeConfig(path = configPath, threads = emptyList())
 
     val backendDir = tempDir.resolve("backend-start-error")
@@ -368,7 +316,6 @@ class CodexAppServerClientTest {
       scope = this,
       tempDir = backendDir,
       configPath = configPath,
-      workingDirectory = workingDir,
       environmentOverrides = mapOf(
         "CODEX_TEST_ERROR_METHOD" to "thread/start",
         "CODEX_TEST_ERROR_MESSAGE" to "boom",
@@ -381,6 +328,101 @@ class CodexAppServerClientTest {
       }
       catch (e: CodexAppServerException) {
         assertThat(e.message).contains("boom")
+      }
+    }
+    finally {
+      client.shutdown()
+    }
+  }
+
+  @Test
+  fun listThreadsUsesPathOverrideWhenExecutableProviderMissing(): Unit = runBlocking(Dispatchers.IO) {
+    val workingDir = tempDir.resolve("project-path-override")
+    Files.createDirectories(workingDir)
+    val configPath = workingDir.resolve("codex-config.json")
+    writeConfig(
+      path = configPath,
+      threads = listOf(
+        ThreadSpec(
+          id = "thread-path",
+          title = "Path Thread",
+          cwd = workingDir.toString(),
+          updatedAt = 1_700_000_000_000L,
+          archived = false,
+        ),
+      ),
+    )
+
+    val backendDir = tempDir.resolve("backend-path-override")
+    Files.createDirectories(backendDir)
+    val codexShim = createMockCodexShim(backendDir, configPath)
+    val client = CodexAppServerClient(
+      coroutineScope = this,
+      executablePathProvider = { null },
+      environmentOverrides = mapOf("PATH" to codexShim.parent.toString()),
+      workingDirectory = workingDir,
+    )
+    try {
+      val threads = client.listThreads(archived = false)
+      assertThat(threads.map { it.id }).containsExactly("thread-path")
+    }
+    finally {
+      client.shutdown()
+    }
+  }
+
+  @Test
+  fun listThreadsFailsWithoutFallbackWhenConfiguredExecutableIsInvalid(): Unit = runBlocking(Dispatchers.IO) {
+    val workingDir = tempDir.resolve("project-invalid-exec")
+    Files.createDirectories(workingDir)
+    val configPath = workingDir.resolve("codex-config.json")
+    writeConfig(path = configPath, threads = emptyList())
+
+    val backendDir = tempDir.resolve("backend-invalid-exec")
+    Files.createDirectories(backendDir)
+    val codexShim = createMockCodexShim(backendDir, configPath)
+    val invalidExecutable = tempDir.resolve("missing-codex").toString()
+    val client = CodexAppServerClient(
+      coroutineScope = this,
+      executablePathProvider = { invalidExecutable },
+      environmentOverrides = mapOf("PATH" to codexShim.parent.toString()),
+      workingDirectory = workingDir,
+    )
+    try {
+      try {
+        client.listThreads(archived = false)
+        fail("Expected CodexAppServerException")
+      }
+      catch (e: CodexAppServerException) {
+        assertThat(e.message).contains(invalidExecutable)
+      }
+    }
+    finally {
+      client.shutdown()
+    }
+  }
+
+  @Test
+  fun listThreadsReportsDefaultExecutableStartFailuresWithoutCliMissingError(): Unit = runBlocking(Dispatchers.IO) {
+    val workingDir = tempDir.resolve("project-invalid-env")
+    Files.createDirectories(workingDir)
+    val configPath = workingDir.resolve("codex-config.json")
+    writeConfig(path = configPath, threads = emptyList())
+
+    val client = CodexAppServerClient(
+      coroutineScope = this,
+      executablePathProvider = { null },
+      environmentOverrides = mapOf("INVALID=KEY" to "value"),
+      workingDirectory = workingDir,
+    )
+    try {
+      try {
+        client.listThreads(archived = false)
+        fail("Expected CodexAppServerException")
+      }
+      catch (e: CodexAppServerException) {
+        assertThat(e).isNotInstanceOf(CodexCliNotFoundException::class.java)
+        assertThat(e.message).contains("Failed to start Codex app-server from codex")
       }
     }
     finally {

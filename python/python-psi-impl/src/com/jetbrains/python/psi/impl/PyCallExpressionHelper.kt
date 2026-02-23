@@ -15,7 +15,7 @@ import com.jetbrains.python.PythonRuntimeService
 import com.jetbrains.python.ast.PyAstFunction
 import com.jetbrains.python.codeInsight.dataflow.scope.ScopeUtil
 import com.jetbrains.python.codeInsight.typing.PyTypingTypeProvider
-import com.jetbrains.python.isPrivate
+import com.jetbrains.python.PyNames.isPrivate
 import com.jetbrains.python.psi.AccessDirection
 import com.jetbrains.python.psi.LanguageLevel
 import com.jetbrains.python.psi.PyArgumentList
@@ -72,7 +72,8 @@ import com.jetbrains.python.psi.types.PyTupleType
 import com.jetbrains.python.psi.types.PyType
 import com.jetbrains.python.psi.types.PyTypeChecker
 import com.jetbrains.python.psi.types.PyTypeMember
-import com.jetbrains.python.psi.types.PyTypeUtil
+import com.jetbrains.python.psi.types.PyTypeUtil.components
+import com.jetbrains.python.psi.types.PyTypeUtil.toStream
 import com.jetbrains.python.psi.types.PyUnionType
 import com.jetbrains.python.psi.types.PyUnsafeUnionType
 import com.jetbrains.python.psi.types.TypeEvalContext
@@ -164,7 +165,7 @@ fun PyCallExpression.getCalleeType(resolveContext: PyResolveContext): PyType? {
 
     val result = mutableListOf<PyType?>()
     if (clarified != null) {
-      PyTypeUtil.toStream(typeFromProviders).forEach {
+      typeFromProviders.toStream().forEach {
         ContainerUtil.addIfNotNull<PyCallableType?>(result, toCallableType(clarified, it, resolveContext.typeEvalContext))
       }
 
@@ -227,7 +228,7 @@ private fun PyCallExpression.getExplicitResolveResults(resolveContext: PyResolve
 
   val result = mutableListOf<PyCallableType>()
 
-  for (type in PyTypeUtil.toStream(calleeType)) {
+  for (type in calleeType.toStream()) {
     // When invoking cls(), turn type[Self] into Self.
     // Otherwise, we will delegate to __init__() of its scope class and return a concrete type class
     // as a call result, losing Self. 
@@ -286,14 +287,14 @@ private fun PyCallExpression.getRemoteResolveResults(resolveContext: PyResolveCo
   val file = containingFile
   if (file == null || !PythonRuntimeService.getInstance().isInPydevConsole(file)) return mutableListOf()
   val calleeType = getCalleeType(resolveContext)
-  return PyTypeUtil.toStream(calleeType).select(PyCallableType::class.java).toList()
+  return calleeType.components.filterIsInstance<PyCallableType>()
 }
 
 private fun List<PsiElement>.selectCallableTypes(context: TypeEvalContext): List<PyCallableType> {
   return this
     .filterIsInstance<PyTypedElement>()
     .map { context.getType(it) }
-    .flatMap { PyTypeUtil.toStream(it) }
+    .flatMap { it.toStream() }
     .filterIsInstance<PyCallableType>()
 }
 
@@ -327,7 +328,8 @@ private fun QualifiedRatedResolveResult.clarifyResolveResult(resolveContext: PyR
   else if (resolved is PyFunction) {
     val context = resolveContext.typeEvalContext
 
-    if (resolved.property != null && resolved.isQualifiedByInstance(qualifiers, context)) {
+    val property = resolved.property
+    if (property != null && property.getter.valueOrNull() == resolved && resolved.isQualifiedByInstance(qualifiers, context)) {
       val type = context.getReturnType(resolved)
 
       return if (type is PyFunctionType) ClarifiedResolveResult(this, type.callable, null, false) else null
@@ -370,7 +372,7 @@ private fun PyCallSiteExpression.toCallableType(
     }
 
     return PyCallableTypeImpl(
-      callableType.getParameters(context),
+      callableType.getParametersType(context),
       clarifiedConstructorCallType ?: callableType.getCallType(context, this),
       clarifiedResolved,
       resolvedModifier,
@@ -922,7 +924,7 @@ private fun PyClassType.resolveConstructors(callSite: PyCallSiteExpression?, res
       if (callableType!!.isReturnTypeAnnotated(context)) {
         val callType = if (callSite != null) callableType.getCallType(context, callSite) else callableType.getReturnType(context)
         val expectedType = toInstance()
-        PyTypeUtil.toStream(callType).anyMatch {
+        callType.toStream().anyMatch {
           it == null || it is PyNeverType || !PyTypeChecker.match(expectedType, it, context)
         }
       }
@@ -1236,7 +1238,7 @@ private fun PyFunction.matchesByArgumentTypes(callSite: PyCallSiteExpression, co
   val receiver = callSite.getReceiver(this)
   val mappedExplicitParameters = fullMapping.mappedParameters
 
-  val allMappedParameters = LinkedHashMap<PyExpression?, PyCallableParameter?>()
+  val allMappedParameters = LinkedHashMap<PyExpression, PyCallableParameter>()
   val firstImplicit = fullMapping.implicitParameters.firstOrNull()
   if (receiver != null && firstImplicit != null) {
     allMappedParameters.put(receiver, firstImplicit)

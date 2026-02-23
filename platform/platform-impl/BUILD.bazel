@@ -39,6 +39,7 @@ jvm_library(
     "//platform/credential-store",
     "//platform/editor-ui-api:editor-ui",
     "//platform/platform-api:ide",
+    "//platform/welcome-screen-impl:welcomeScreen-impl",
     "//libraries/oro-matcher",
     "//jps/model-api:model",
     "//jps/model-serialization",
@@ -146,8 +147,9 @@ jvm_library(
     "//platform/buildData",
     "//platform/kernel/pasta",
     "//platform/workspace/storage",
-    "//platform/plugins/parser/impl",
+    "//platform/pluginSystem/parser/impl",
     "//platform/eel",
+    "//platform/project-frame",
     "//platform/platform-util-io:ide-util-io",
     "//platform/locking-impl",
     "//platform/platform-impl/concurrency",
@@ -161,7 +163,6 @@ jvm_library(
   ],
   exports = [
     "//platform/platform-api:ide",
-    "@lib//:kotlin-stdlib",
     "//platform/util:util-ui",
   ],
   runtime_deps = [
@@ -201,6 +202,7 @@ jvm_library(
     "//platform/credential-store",
     "//platform/editor-ui-api:editor-ui",
     "//platform/platform-api:ide",
+    "//platform/welcome-screen-impl:welcomeScreen-impl",
     "//libraries/oro-matcher",
     "//jps/model-api:model",
     "//jps/model-serialization",
@@ -316,9 +318,10 @@ jvm_library(
     "//platform/buildData",
     "//platform/kernel/pasta",
     "//platform/workspace/storage",
-    "//platform/plugins/parser/impl",
-    "//platform/plugins/parser/impl:impl_test_lib",
+    "//platform/pluginSystem/parser/impl",
+    "//platform/pluginSystem/parser/impl:impl_test_lib",
     "//platform/eel",
+    "//platform/project-frame",
     "//platform/platform-util-io:ide-util-io",
     "//platform/locking-impl",
     "//platform/platform-impl/concurrency",
@@ -332,7 +335,6 @@ jvm_library(
   ],
   exports = [
     "//platform/platform-api:ide",
-    "@lib//:kotlin-stdlib",
     "//platform/util:util-ui",
   ]
 )

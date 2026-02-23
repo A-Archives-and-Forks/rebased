@@ -6,8 +6,6 @@ import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.core.JsonToken
 import java.io.Writer
-import java.nio.file.Path
-import kotlin.io.path.invariantSeparatorsPathString
 
 private const val MAX_TITLE_LENGTH = 120
 
@@ -16,10 +14,8 @@ internal data class ThreadListResult(
   val nextCursor: String?,
 )
 
-internal class CodexAppServerProtocol(workingDirectory: Path?) {
+internal class CodexAppServerProtocol {
   private val jsonFactory = JsonFactory()
-  // Normalized path string (invariant separators, no trailing slash) used to filter threads by cwd.
-  private val cwdFilter = workingDirectory?.let { normalizeRootPath(it.invariantSeparatorsPathString) }
 
   fun writePayload(out: Writer, payloadWriter: (JsonGenerator) -> Unit) {
     val generator = jsonFactory.createGenerator(out)
@@ -72,7 +68,7 @@ internal class CodexAppServerProtocol(workingDirectory: Path?) {
     }
   }
 
-  fun parseThreadListResult(parser: JsonParser, archived: Boolean): ThreadListResult {
+  fun parseThreadListResult(parser: JsonParser, archived: Boolean, cwdFilter: String? = null): ThreadListResult {
     if (parser.currentToken != JsonToken.START_OBJECT) {
       parser.skipChildren()
       return ThreadListResult(threads = emptyList(), nextCursor = null)
@@ -99,6 +95,26 @@ internal class CodexAppServerProtocol(workingDirectory: Path?) {
 
     return parseThreadFromResultObject(parser)
       ?: throw CodexAppServerException("Codex app-server returned thread/start result without thread data")
+  }
+
+  fun parseTurnStartTurnId(parser: JsonParser): String? {
+    if (parser.currentToken != JsonToken.START_OBJECT) {
+      parser.skipChildren()
+      return null
+    }
+    var turnId: String? = null
+    forEachObjectField(parser) { fieldName ->
+      if (fieldName == "turn" && parser.currentToken == JsonToken.START_OBJECT) {
+        forEachObjectField(parser) { turnField ->
+          if (turnField == "id") turnId = readStringOrNull(parser)
+          else parser.skipChildren()
+          true
+        }
+      }
+      else parser.skipChildren()
+      true
+    }
+    return turnId
   }
 }
 
@@ -133,7 +149,10 @@ private fun parseThreadObject(parser: JsonParser, archived: Boolean, cwdFilter: 
   )
   val previewValue = payload.preview ?: payload.title ?: payload.name ?: payload.summary
   val threadTitle = previewValue?.let { trimTitle(it) }?.takeIf { it.isNotBlank() } ?: "Thread ${threadId.take(8)}"
-  return CodexThread(id = threadId, title = threadTitle, updatedAt = updatedAtValue, archived = archived)
+  return CodexThread(
+    id = threadId, title = threadTitle, updatedAt = updatedAtValue, archived = archived,
+    gitBranch = payload.gitBranch, cwd = payload.cwd?.let(::normalizeRootPath),
+  )
 }
 
 private fun parseThreadFromResultObject(parser: JsonParser): CodexThread? {
@@ -150,7 +169,10 @@ private fun parseThreadFromResultObject(parser: JsonParser): CodexThread? {
   )
   val previewValue = payload.preview ?: payload.title ?: payload.name ?: payload.summary
   val threadTitle = previewValue?.let(::trimTitle)?.takeIf { it.isNotBlank() } ?: "Thread ${threadId.take(8)}"
-  return CodexThread(id = threadId, title = threadTitle, updatedAt = updatedAtValue, archived = false)
+  return CodexThread(
+    id = threadId, title = threadTitle, updatedAt = updatedAtValue, archived = false,
+    gitBranch = payload.gitBranch, cwd = payload.cwd?.let(::normalizeRootPath),
+  )
 }
 
 private data class ThreadPayload(
@@ -165,6 +187,7 @@ private data class ThreadPayload(
   val summary: String?,
   val cwd: String?,
   val nestedThread: CodexThread?,
+  val gitBranch: String?,
 )
 
 private fun parseThreadPayload(parser: JsonParser, allowNestedThread: Boolean): ThreadPayload {
@@ -179,6 +202,7 @@ private fun parseThreadPayload(parser: JsonParser, allowNestedThread: Boolean): 
   var summary: String? = null
   var cwd: String? = null
   var nestedThread: CodexThread? = null
+  var gitBranch: String? = null
 
   forEachObjectField(parser) { fieldName ->
     when (fieldName) {
@@ -200,6 +224,7 @@ private fun parseThreadPayload(parser: JsonParser, allowNestedThread: Boolean): 
       "name" -> name = readStringOrNull(parser)
       "summary" -> summary = readStringOrNull(parser)
       "cwd" -> cwd = readStringOrNull(parser)
+      "gitBranch", "git_branch" -> gitBranch = readStringOrNull(parser)
       else -> parser.skipChildren()
     }
     true
@@ -217,6 +242,7 @@ private fun parseThreadPayload(parser: JsonParser, allowNestedThread: Boolean): 
     summary = summary,
     cwd = cwd,
     nestedThread = nestedThread,
+    gitBranch = gitBranch,
   )
 }
 
@@ -235,7 +261,7 @@ private fun trimTitle(value: String): String {
   return trimmed.take(MAX_TITLE_LENGTH - 3).trimEnd() + "..."
 }
 
-private fun normalizeRootPath(value: String): String {
+fun normalizeRootPath(value: String): String {
   return value.replace('\\', '/').trimEnd('/')
 }
 

@@ -1,6 +1,7 @@
 // Copyright 2000-2026 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package com.intellij.platform.completion.common.protocol
 
+import com.intellij.codeInsight.lookup.LookupFocusDegree
 import com.intellij.platform.project.ProjectId
 import kotlinx.serialization.Serializable
 
@@ -10,30 +11,20 @@ import kotlinx.serialization.Serializable
 @Serializable
 sealed interface RpcLookupElementEvent {
   /**
-   * the current item changed in the current lookup
+   * The lookup state changed. Only changed properties are included (null means not changed).
    */
   @Serializable
-  data class CurrentItemChanged(
+  data class LookupStateChanged(
     val requestId: RpcCompletionRequestId,
-    val itemId: RpcCompletionItemId?,
+    val selectedItemId: RpcSelectedItem? = null,
+    val focusDegree: LookupFocusDegree? = null,
+    val sortedItemIds: List<RpcCompletionItemId>? = null,
   ) : RpcLookupElementEvent {
-    override fun toString(): String = buildToString("SelectedItem") {
+    override fun toString(): String = buildToString("LookupStateChanged") {
       field("requestId", requestId)
-      field("itemId", itemId)
-    }
-  }
-
-  /**
-   * the arrangement changed in the current lookup
-   */
-  @Serializable
-  data class ArrangementChanged(
-    val requestId: RpcCompletionRequestId,
-    val arrangementId: RpcCompletionArrangementId,
-  ) : RpcLookupElementEvent {
-    override fun toString(): String = buildToString("ArrangementChanged") {
-      field("requestId", requestId)
-      field("arrangementId", arrangementId)
+      fieldWithNullDefault("selectedItemId", selectedItemId)
+      fieldWithNullDefault("focusDegree", focusDegree)
+      fieldWithNullDefault("sortedItemIds", sortedItemIds)
     }
   }
 
@@ -59,3 +50,10 @@ sealed interface RpcLookupElementEvent {
 
 }
 
+
+@Serializable
+data class RpcSelectedItem(val value: RpcCompletionItemId? = null) {
+  override fun toString(): String = buildToString("RpcSelectedItem") {
+    fieldWithNullDefault("value", value)
+  }
+}

@@ -34,6 +34,8 @@ import com.jetbrains.python.psi.PyUtil
 import com.jetbrains.python.psi.impl.PyBuiltinCache
 import com.jetbrains.python.psi.impl.PyEvaluator
 import com.jetbrains.python.psi.resolve.PyResolveContext
+import com.jetbrains.python.psi.types.PyTypeUtil.getEffectiveBound
+import com.jetbrains.python.psi.types.PyTypeUtil.toStream
 import org.jetbrains.annotations.ApiStatus
 
 
@@ -42,7 +44,7 @@ import org.jetbrains.annotations.ApiStatus
  */
 class PyLiteralType private constructor(cls: PyClass, val expression: PyExpression) : PyClassTypeImpl(cls, false) {
 
-  override fun getName(): String = "Literal[${expression.text}]"
+  override val name: String = "Literal[${expression.text}]"
 
   override fun toString(): String = "PyLiteralType: ${expression.text}"
 
@@ -52,7 +54,7 @@ class PyLiteralType private constructor(cls: PyClass, val expression: PyExpressi
 
   override fun hashCode(): Int = 31 * pyClass.hashCode()
 
-  override fun <T : Any?> acceptTypeVisitor(visitor: PyTypeVisitor<T?>): T? {
+  override fun <T> acceptTypeVisitor(visitor: PyTypeVisitor<T>): T? {
     if (visitor is PyTypeVisitorExt) {
       return visitor.visitPyLiteralType(this)
     }
@@ -199,7 +201,7 @@ class PyLiteralType private constructor(cls: PyClass, val expression: PyExpressi
       substitutions: PyTypeChecker.GenericSubstitutions?,
     ): PyType? {
       val substitution = if (substitutions != null) PyTypeChecker.substitute(expected, substitutions, context) else expected
-      val substitutionOrBound = if (substitution is PyTypeVarType) PyTypeUtil.getEffectiveBound(substitution) else substitution
+      val substitutionOrBound = if (substitution is PyTypeVarType) substitution.getEffectiveBound() else substitution
       if (substitutionOrBound == null) return null
       return TypePromoter(context, containsLiteral(substitutionOrBound)).promoteToType(substitutionOrBound, expression)
     }
@@ -224,7 +226,7 @@ class PyLiteralType private constructor(cls: PyClass, val expression: PyExpressi
 
       if (expression is PyReferenceExpression || expression is PySubscriptionExpression) {
         val subLiteralType = Ref.deref(PyTypingTypeProvider.getType(expression, context))
-        if (PyTypeUtil.toStream(subLiteralType).all { it is PyLiteralType }) return subLiteralType
+        if (subLiteralType.toStream().all { it is PyLiteralType }) return subLiteralType
       }
 
       return literalType(expression, context, true)

@@ -17,6 +17,8 @@ data class CodexThread(
   @JvmField val archived: Boolean,
   // TODO: Populate subAgents once Codex exposes multi-agent hierarchy data.
   @JvmField val subAgents: List<CodexSubAgent> = emptyList(),
+  @JvmField val gitBranch: String? = null,
+  @JvmField val cwd: String? = null,
 )
 
 @Immutable

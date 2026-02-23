@@ -23,6 +23,7 @@ jvm_library(
     ":pycharm-community_resources_1",
   ],
   deps = [
+    "@lib//:kotlin-stdlib",
     "//platform/platform-impl:ide-impl",
     "//platform/lang-api:lang",
     "//platform/lang-impl",
@@ -205,6 +206,7 @@ jvm_library(
     "//platform/indexing-api:indexing",
     "//jps/model-api:model",
     "//platform/lang-core",
+    "//platform/welcome-screen-impl:welcomeScreen-impl",
     "//platform/lang-api:lang",
     "//platform/macro",
     "//platform/projectModel-api:projectModel",
@@ -284,8 +286,6 @@ jvm_library(
     "//platform/ui.jcef",
     "//libraries/io",
     "//platform/util/progress",
-    "//platform/feedback",
-    "//libraries/kotlinx/datetime",
     "//platform/platform-impl/remote",
     "//platform/platform-impl/ui",
     "//libraries/jackson/module-kotlin:libraries-jackson-module-kotlin",
@@ -319,6 +319,7 @@ jvm_library(
     "//platform/execution",
     "//platform/forms_rt:java-guiForms-rt",
     "//python/python-external-index:externalIndex",
+    "//python/conda",
   ],
   exports = [
     "//python/openapi:community",
@@ -365,6 +366,7 @@ jvm_library(
     "//python/services/system-python:system-python_test_lib",
     "//python/services/internal-impl:python-community-services-internal-impl_test_lib",
     "//python/python-pyproject:pyproject_test_lib",
+    "//platform/xdebugger-impl/ui:ui_test_lib",
   ]
 )
 ### auto-generated section `build intellij.python.community.impl` end
@@ -478,6 +480,9 @@ jvm_library(
     "//platform/editor-ui-ex:editor-ex",
     "//platform/xdebugger-impl:debugger-impl",
     "//platform/xdebugger-impl:debugger-impl_test_lib",
+    "//platform/xdebugger-impl/shared",
+    "//platform/xdebugger-impl/ui",
+    "//platform/xdebugger-impl/ui:ui_test_lib",
     "//python:python-pydev",
     "//platform/smRunner",
     "//platform/smRunner:smRunner_test_lib",
@@ -656,6 +661,8 @@ jvm_library(
     "//platform/util/concurrency",
     "//platform/platform-util-io:ide-util-io",
     "//platform/xdebugger-impl:debugger-impl",
+    "//platform/xdebugger-impl/shared",
+    "//platform/xdebugger-impl/ui",
     "//python/python-syntax-core:syntax-core",
     "//platform/core-ui",
     "//platform/ide-core-impl",

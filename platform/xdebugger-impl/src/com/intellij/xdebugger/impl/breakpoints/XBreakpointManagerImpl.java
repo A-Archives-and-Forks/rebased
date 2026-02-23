@@ -9,6 +9,7 @@ import com.intellij.openapi.application.ModalityState;
 import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.components.PersistentStateComponent;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.extensions.ExtensionPointListener;
 import com.intellij.openapi.extensions.PluginDescriptor;
 import com.intellij.openapi.progress.ProgressManager;
@@ -42,6 +43,7 @@ import com.intellij.xdebugger.breakpoints.XLineBreakpoint;
 import com.intellij.xdebugger.breakpoints.XLineBreakpointType;
 import com.intellij.xdebugger.impl.BreakpointManagerState;
 import com.intellij.xdebugger.impl.XDebuggerManagerImpl;
+import com.intellij.xdebugger.impl.XDebuggerUtilImpl;
 import com.intellij.xdebugger.impl.proxy.MonolithBreakpointManagerKt;
 import kotlinx.coroutines.CoroutineScope;
 import one.util.streamex.StreamEx;
@@ -485,8 +487,14 @@ public final class XBreakpointManagerImpl implements XBreakpointManager {
     presentation.setErrorMessage(errorMessage);
     presentation.setIcon(icon);
     lineBreakpoint.setCustomizedPresentation(presentation);
-    myLineBreakpointManager.queueBreakpointUpdate(breakpoint,
-                                                  () -> ((XBreakpointBase<?, ?, ?>)breakpoint).fireBreakpointPresentationUpdated(null));
+    if (SplitDebuggerMode.isSplitDebugger()) {
+      // for split, we call update directly since visual presentation is disabled on the backend
+      lineBreakpoint.fireBreakpointPresentationUpdated(null);
+    }
+    else {
+      myLineBreakpointManager.queueBreakpointUpdate(breakpoint,
+                                                    () -> lineBreakpoint.fireBreakpointPresentationUpdated(null));
+    }
   }
 
   @ApiStatus.Internal
@@ -724,6 +732,11 @@ public final class XBreakpointManagerImpl implements XBreakpointManager {
     state.setTypeId(type.getId());
     state.setSuspendPolicy(type.getDefaultSuspendPolicy());
     return state;
+  }
+
+  public void removeBreakpointsInDocument(Document document) {
+    var breakpoints = XDebuggerUtilImpl.getDocumentBreakpoints(document, myLineBreakpointManager);
+    removeBreakpoints(breakpoints);
   }
 
   public void rememberRemovedBreakpoint(@NotNull XBreakpointBase breakpoint) {

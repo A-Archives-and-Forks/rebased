@@ -12,6 +12,7 @@ import com.intellij.codeInsight.completion.CompletionLookupArrangerImpl;
 import com.intellij.codeInsight.completion.CompletionUtil;
 import com.intellij.codeInsight.completion.FinishCompletionInfo;
 import com.intellij.codeInsight.completion.LookupElementListPresenter;
+import com.intellij.codeInsight.completion.ModCompletionInserter;
 import com.intellij.codeInsight.completion.PrefixMatcher;
 import com.intellij.codeInsight.completion.ShowHideIntentionIconLookupAction;
 import com.intellij.codeInsight.completion.impl.CamelHumpMatcher;
@@ -42,7 +43,6 @@ import com.intellij.lang.LangBundle;
 import com.intellij.lang.injection.InjectedLanguageManager;
 import com.intellij.modcommand.ActionContext;
 import com.intellij.modcommand.ModCommand;
-import com.intellij.modcommand.ModCommandExecutor;
 import com.intellij.modcompletion.ModCompletionItem;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.actionSystem.ActionManager;
@@ -55,7 +55,6 @@ import com.intellij.openapi.actionSystem.ex.ActionUtil;
 import com.intellij.openapi.application.AccessToken;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ReadAction;
-import com.intellij.openapi.application.WriteAction;
 import com.intellij.openapi.application.WriteIntentReadAction;
 import com.intellij.openapi.client.ClientProjectSession;
 import com.intellij.openapi.client.ClientSessionsUtil;
@@ -164,7 +163,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
-import static com.intellij.codeInsight.lookup.LookupElement.LOOKUP_ELEMENT_SHOW_TIMESTAMP_MILLIS;
+import static com.intellij.codeInsight.completion.FusCompletionKeys.LOOKUP_ELEMENT_SHOW_TIMESTAMP_MILLIS;
 import static kotlinx.coroutines.SupervisorKt.SupervisorJob;
 
 public class LookupImpl extends LightweightHint implements LookupEx, Disposable, LookupElementListPresenter {
@@ -291,10 +290,14 @@ public class LookupImpl extends LightweightHint implements LookupEx, Disposable,
   }
 
   public void setArranger(@NotNull LookupArranger arranger) {
-    Predicate<LookupElement> previousMatcher = myArranger.getAdditionalMatcher();
+    reuseAdditionalMatcher(myArranger, arranger);
     myArranger = arranger;
-    if (previousMatcher != null) {
-      myArranger.registerAdditionalMatcher(previousMatcher);
+  }
+
+  private static void reuseAdditionalMatcher(@NotNull LookupArranger oldArranger, @NotNull LookupArranger newArranger) {
+    Predicate<LookupElement> oldMatcher = oldArranger.getAdditionalMatcher();
+    if (oldMatcher != null) {
+      newArranger.setAdditionalMatcher(oldMatcher);
     }
   }
 
@@ -744,8 +747,7 @@ public class LookupImpl extends LightweightHint implements LookupEx, Disposable,
                                  @NotNull PsiFile psiFile,
                                  CompletionItemLookupElement wrapper) {
     ModCompletionItem.InsertionContext insertionContext = new ModCompletionItem.InsertionContext(
-      completionChar == REPLACE_SELECT_CHAR ?
-      ModCompletionItem.InsertionMode.OVERWRITE : ModCompletionItem.InsertionMode.INSERT,
+      completionChar == REPLACE_SELECT_CHAR ? ModCompletionItem.InsertionMode.OVERWRITE : ModCompletionItem.InsertionMode.INSERT,
       completionChar);
     ActionContext actionContext = ActionContext.from(editor, psiFile);
     ActionContext finalActionContext = actionContext
@@ -759,8 +761,7 @@ public class LookupImpl extends LightweightHint implements LookupEx, Disposable,
           () -> wrapper.computeCommand(finalActionContext, insertionContext)).executeSynchronously(),
         AnalysisBundle.message("complete"), true, project);
     }
-    WriteAction.run(() -> editor.getDocument().deleteString(start, actionContext.offset()));
-    ModCommandExecutor.getInstance().executeInteractively(actionContext, command, editor);
+    ModCompletionInserter.executeModCommand(editor, psiFile, start, actionContext.offset(), command);
   }
 
   void finishLookupInWritableFile(char completionChar, @Nullable LookupElement item) {
@@ -1265,6 +1266,11 @@ public class LookupImpl extends LightweightHint implements LookupEx, Disposable,
         listener.currentItemChanged(event);
       }
     }
+    cacheModCommandResult(currentItem);
+    myPreview.updatePreview(currentItem);
+  }
+
+  private void cacheModCommandResult(@Nullable LookupElement currentItem) {
     if (currentItem instanceof CompletionItemLookupElement wrapper && !PowerSaveMode.isEnabled()) {
       PsiFile file = getPsiFile();
       if (file != null) {
@@ -1280,7 +1286,6 @@ public class LookupImpl extends LightweightHint implements LookupEx, Disposable,
           .submit(AppExecutorUtil.getAppExecutorService());
       }
     }
-    myPreview.updatePreview(currentItem);
   }
 
   private void fireUiRefreshed() {
@@ -1514,11 +1519,7 @@ public class LookupImpl extends LightweightHint implements LookupEx, Disposable,
   public void markReused() {
     EDT.assertIsEdt();
     LookupArranger copy = myArranger.createEmptyCopy();
-    Predicate<LookupElement> additionalMatcher = myArranger.getAdditionalMatcher();
-    if (additionalMatcher != null) {
-      copy.registerAdditionalMatcher(additionalMatcher);
-    }
-    myArranger = copy;
+    setArranger(copy);
 
     requestResize();
   }
