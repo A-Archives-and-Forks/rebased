@@ -19,11 +19,13 @@ import com.intellij.psi.util.CachedValue
 import com.intellij.psi.util.CachedValueProvider
 import com.intellij.psi.util.CachedValuesManager
 import com.intellij.python.pyproject.PY_PROJECT_TOML
+import com.intellij.serviceContainer.AlreadyDisposedException
 import com.intellij.util.cancelOnDispose
 import com.intellij.util.concurrency.annotations.RequiresBackgroundThread
 import com.intellij.util.messages.Topic
 import com.jetbrains.python.NON_INTERACTIVE_ROOT_TRACE_CONTEXT
 import com.jetbrains.python.errorProcessing.PyResult
+import com.jetbrains.python.extensions.toPsi
 import com.jetbrains.python.getOrNull
 import com.jetbrains.python.onFailure
 import com.jetbrains.python.packaging.PyPackageManager
@@ -38,6 +40,7 @@ import com.jetbrains.python.sdk.PythonSdkType
 import com.jetbrains.python.sdk.isReadOnly
 import com.jetbrains.python.sdk.readOnlyErrorMessage
 import com.jetbrains.python.sdk.refreshPaths
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
@@ -47,6 +50,7 @@ import org.jetbrains.annotations.Nls
 import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.jvm.Throws
 
 
 /**
@@ -76,14 +80,18 @@ abstract class PythonPackageManager(val project: Project, val sdk: Sdk) : Dispos
   @Volatile
   protected var outdatedPackages: Map<String, PythonOutdatedPackage> = emptyMap()
 
-  private fun createCachedDependencies(dependencyFile: VirtualFile): CachedValue<Deferred<PyResult<List<PythonPackage>>?>> =
-    CachedValuesManager.getManager(project).createCachedValue {
-      val scope = PyPackageCoroutine.getScope(project)
-      val deferred = scope.async(NON_INTERACTIVE_ROOT_TRACE_CONTEXT, start = CoroutineStart.LAZY) {
-        extractDependencies()
-      }
-      CachedValueProvider.Result.create(deferred, dependencyFile)
+  private suspend fun createCachedDependencies(dependencyFile: VirtualFile): Deferred<PyResult<List<PythonPackage>>?> {
+    val psiFile = readAction { dependencyFile.toPsi(project) } ?: return CompletableDeferred(value = null)
+    return CachedValuesManager.getManager(project).getCachedValue(psiFile, CACHE_KEY, { extractDependenciesAsync(dependencyFile) }, false)
+  }
+
+  private fun extractDependenciesAsync(dependencyFile: VirtualFile): CachedValueProvider.Result<Deferred<PyResult<List<PythonPackage>>?>> {
+    val scope = PyPackageCoroutine.getScope(project)
+    val deferred = scope.async(NON_INTERACTIVE_ROOT_TRACE_CONTEXT, start = CoroutineStart.LAZY) {
+      extractDependencies()
     }
+    return CachedValueProvider.Result.create(deferred, dependencyFile)
+  }
 
   abstract val repositoryManager: PythonRepositoryManager
 
@@ -97,7 +105,10 @@ abstract class PythonPackageManager(val project: Project, val sdk: Sdk) : Dispos
   }
 
   @ApiStatus.Internal
-  suspend fun installPackage(installRequest: PythonPackageInstallRequest, options: List<String> = emptyList()): PyResult<List<PythonPackage>> {
+  suspend fun installPackage(
+    installRequest: PythonPackageInstallRequest,
+    options: List<String> = emptyList(),
+  ): PyResult<List<PythonPackage>> {
     if (sdk.isReadOnly) {
       return PyResult.localizedError(sdk.readOnlyErrorMessage)
     }
@@ -108,7 +119,10 @@ abstract class PythonPackageManager(val project: Project, val sdk: Sdk) : Dispos
   }
 
   @ApiStatus.Internal
-  suspend fun installPackageDetached(installRequest: PythonPackageInstallRequest, options: List<String> = emptyList()): PyResult<List<PythonPackage>> {
+  suspend fun installPackageDetached(
+    installRequest: PythonPackageInstallRequest,
+    options: List<String> = emptyList(),
+  ): PyResult<List<PythonPackage>> {
     waitForInit()
     installPackageDetachedCommand(installRequest, options).getOr { return it }
 
@@ -226,7 +240,10 @@ abstract class PythonPackageManager(val project: Project, val sdk: Sdk) : Dispos
 
   @ApiStatus.Internal
   @CheckReturnValue
-  protected open suspend fun installPackageDetachedCommand(installRequest: PythonPackageInstallRequest, options: List<String>): PyResult<Unit> =
+  protected open suspend fun installPackageDetachedCommand(
+    installRequest: PythonPackageInstallRequest,
+    options: List<String>,
+  ): PyResult<Unit> =
     installPackageCommand(installRequest, options)
 
   @ApiStatus.Internal
@@ -262,7 +279,7 @@ abstract class PythonPackageManager(val project: Project, val sdk: Sdk) : Dispos
   @ApiStatus.Internal
   suspend fun extractDependenciesCached(): PyResult<List<PythonPackage>>? {
     val dependencyFile = getDependencyFile() ?: return null
-    return createCachedDependencies(dependencyFile).value.await()
+    return createCachedDependencies(dependencyFile).await()
   }
 
   /**
@@ -270,6 +287,7 @@ abstract class PythonPackageManager(val project: Project, val sdk: Sdk) : Dispos
    * Returns null if no dependency file is associated with this package manager.
    */
   @ApiStatus.Internal
+  @RequiresBackgroundThread
   open fun getDependencyFile(): VirtualFile? = null
 
 
@@ -319,7 +337,10 @@ abstract class PythonPackageManager(val project: Project, val sdk: Sdk) : Dispos
   private fun shouldBeInitInstantly(): Boolean = ApplicationManager.getApplication().isUnitTestMode
 
   companion object {
+    private val CACHE_KEY = Key.create<CachedValue<Deferred<PyResult<List<PythonPackage>>?>>>("PythonPackageManagerDependenciesCache")
+
     @RequiresBackgroundThread
+    @Throws(AlreadyDisposedException::class)
     fun forSdk(project: Project, sdk: Sdk): PythonPackageManager {
       val pythonPackageManagerService = project.service<PythonPackageManagerService>()
       val manager = pythonPackageManagerService.forSdk(project, sdk)
@@ -332,7 +353,8 @@ abstract class PythonPackageManager(val project: Project, val sdk: Sdk) : Dispos
     }
 
     @Topic.AppLevel
-    val PACKAGE_MANAGEMENT_TOPIC: Topic<PythonPackageManagementListener> = Topic(PythonPackageManagementListener::class.java, Topic.BroadcastDirection.TO_DIRECT_CHILDREN)
+    val PACKAGE_MANAGEMENT_TOPIC: Topic<PythonPackageManagementListener> =
+      Topic(PythonPackageManagementListener::class.java, Topic.BroadcastDirection.TO_DIRECT_CHILDREN)
     val RUNNING_PACKAGING_TASKS: Key<Boolean> = Key.create("PyPackageRequirementsInspection.RunningPackagingTasks")
 
     @ApiStatus.Internal
