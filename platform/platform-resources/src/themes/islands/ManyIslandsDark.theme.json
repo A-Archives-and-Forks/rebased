@@ -1111,6 +1111,7 @@
 
     "MainToolbar": {
       "background": "container-main-window-bg",
+      "inactiveBackground": "container-main-window-bg",
       "borderColor": "transparent",
       "separatorColor": "toolbar-border",
       "Icon": {
@@ -1228,7 +1229,7 @@
     "WelcomeScreen": {
       "Details.background": "container-dialog-bg",
       "Banner.background": "container-dialog-bg-inline",
-      "SidePanel.background": "container-dialog-bg-inline",
+      "SidePanel.background": "container-dialog-bg",
       "Projects.actions.background": "#2B2D30"
     },
 
@@ -1604,7 +1605,7 @@
           "border": "presentation-assistant-bg"
         },
         "PopupBackground": "presentation-assistant-bg",
-        "keymapLabel": "blue-50"
+        "keymapLabel": "text-muted"
       },
       "Pale": {
         "Popup": {

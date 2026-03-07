@@ -11,10 +11,14 @@ import com.intellij.python.community.impl.poetry.common.poetryPath
 import com.jetbrains.python.PyBundle
 import com.jetbrains.python.PythonBinary
 import com.jetbrains.python.PythonHomePath
+import com.jetbrains.python.errorProcessing.ErrorSink
 import com.jetbrains.python.errorProcessing.PyResult
+import com.jetbrains.python.errorProcessing.emit
 import com.jetbrains.python.getOrNull
 import com.jetbrains.python.isSuccess
+import com.jetbrains.python.onFailure
 import com.jetbrains.python.packaging.PyPackage
+import com.jetbrains.python.packaging.PyPackageName
 import com.jetbrains.python.packaging.PyRequirement
 import com.jetbrains.python.packaging.PyRequirementParser
 import com.jetbrains.python.packaging.common.PythonOutdatedPackage
@@ -30,6 +34,7 @@ import kotlinx.coroutines.withContext
 import org.jetbrains.annotations.ApiStatus.Internal
 import org.jetbrains.annotations.Nls
 import java.nio.file.Path
+import kotlin.io.path.name
 import kotlin.io.path.pathString
 
 /**
@@ -84,36 +89,36 @@ suspend fun runPoetryWithSdk(sdk: Sdk, vararg args: String): PyResult<String> {
 @Internal
 suspend fun setupPoetry(
   projectPath: Path,
-  basePythonBinaryPath: PythonBinary?,
+  basePythonBinaryPath: PythonBinary,
   installPackages: Boolean,
   init: Boolean,
+  errorSink: ErrorSink,
 ): PyResult<PythonHomePath> {
   if (init) {
     // Build poetry init command with Python version constraint if available
     val initArgs = mutableListOf("init", "-n")
 
-    if (basePythonBinaryPath != null) {
-      // Validate Python and get version info
-      val pythonInfo = basePythonBinaryPath.validatePythonAndGetInfo().getOr { return it }
-      val major = pythonInfo.languageLevel.majorVersion
-      val minor = pythonInfo.languageLevel.minorVersion
-      // Add --python flag with caret constraint (e.g., "^3.10")
-      initArgs.add("--python")
-      initArgs.add("^$major.$minor")
+    val projectName = PyPackageName.normalizeProjectName(projectPath.name)
+    if (projectName.isNotBlank()) {
+      initArgs.add("--name")
+      initArgs.add(projectName)
     }
+
+    // Validate Python and get version info
+    val pythonInfo = basePythonBinaryPath.validatePythonAndGetInfo().getOr { return it }
+    val major = pythonInfo.languageLevel.majorVersion
+    val minor = pythonInfo.languageLevel.minorVersion
+    // Add --python flag with caret constraint (e.g., "^3.10")
+    initArgs.add("--python")
+    initArgs.add("^$major.$minor")
 
     runPoetry(projectPath, *initArgs.toTypedArray()).getOr { return it }
   }
 
-  if (basePythonBinaryPath != null) {
-    runPoetry(projectPath, "env", "use", basePythonBinaryPath.pathString).getOr { return it }
-  }
-  else {
-    runPoetry(projectPath, "run", "python", "-V").getOr { return it }
-  }
+  runPoetry(projectPath, "env", "use", basePythonBinaryPath.pathString).getOr { return it }
 
   if (installPackages) {
-    runPoetry(projectPath, "install", "--no-root").getOr { return it }
+    runPoetry(projectPath, "install", "--no-root").onFailure { errorSink.emit(it) }
   }
 
   return runPoetry(projectPath, "env", "info", "-p").mapSuccess { Path.of(it) }

@@ -85,9 +85,10 @@ internal class EnvironmentCreatorPoetry<P : PathHolder>(
     scope.launch(Dispatchers.IO) {
       val moduleDir = model.getBasePath(module).let { VirtualFileManager.getInstance().findFileByNioPath(it) }
 
-      val validatedInterpreters = moduleDir?.let {
-        PoetryPyProjectTomlPythonVersionsService.instance.validateInterpretersVersions(moduleDir, model.baseInterpreters)
-      } ?: model.baseInterpreters
+      val project = module?.project
+      val validatedInterpreters = if (moduleDir != null && project != null) {
+        PoetryPyProjectTomlPythonVersionsService.getInstance(project).validateInterpretersVersions(moduleDir, model.baseInterpreters)
+      } else model.baseInterpreters
 
       withContext(Dispatchers.EDT) {
         basePythonComboBox.initialize(scope, validatedInterpreters)
@@ -123,7 +124,8 @@ internal class EnvironmentCreatorPoetry<P : PathHolder>(
       is PathHolder.Eel -> createNewPoetrySdk(
         moduleBasePath = moduleBasePath,
         basePythonBinaryPath = basePythonBinaryPath.path,
-        installPackages = false
+        installPackages = false,
+        errorSink = errorSink
       )
       else -> PyResult.localizedError(PyBundle.message("target.is.not.supported", basePythonBinaryPath))
     }

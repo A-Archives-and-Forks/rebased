@@ -4128,6 +4128,22 @@ public class Py3TypeCheckerInspectionTest extends PyInspectionTestCase {
                    """);
   }
 
+  public void testEllipsisDefaultArgumentInProtocolMethod() {
+    doTestByText("""
+                   from typing import Protocol
+                   
+                   class A(Protocol):
+                       def f(self, a: str = ...):
+                           pass""");
+  }
+
+  public void testEllipsisDefaultArgumentInMethod() {
+    doTestByText("""
+                   class A:
+                       def f(self, a: str = <warning descr="Expected type 'str', got 'EllipsisType' instead">...</warning>):
+                           pass""");
+  }
+
   // PY-76883
   public void testCallableSubtypingKeywordOnlyOrder() {
     doTestByText("""
@@ -4261,6 +4277,16 @@ public class Py3TypeCheckerInspectionTest extends PyInspectionTestCase {
     doTestByText("""
                    def f(a: dict[str, int]):
                        b: tuple[int, ...] = tuple(a.values())
+                   """);
+  }
+
+  // PY-86873
+  public void testNestedListUnpacking() {
+    doTestByText("""
+                   def f(edges: list[list[int]]):
+                       [[node_a], second_edge] = edges
+                       a: int = node_a
+                       c: list[int] = second_edge
                    """);
   }
 }
