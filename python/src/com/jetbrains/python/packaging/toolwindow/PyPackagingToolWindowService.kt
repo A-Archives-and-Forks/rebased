@@ -294,6 +294,7 @@ class PyPackagingToolWindowService(val project: Project, val serviceScope: Corou
         text = message("python.packaging.notification.deleted", selectedPackages.joinToString(", ") { it.name }),
         displayId = PYTHON_PACKAGE_DELETED
       )
+      refreshInstalledPackages()
       toolWindowPanel?.clearFocus()
     }
   }
@@ -394,10 +395,12 @@ class PyPackagingToolWindowService(val project: Project, val serviceScope: Corou
   suspend fun refreshInstalledPackages() {
     val context = sdkContext ?: return
 
-    val declaredPackageNames = context.manager.extractDependenciesCached()
-      ?.getOrNull()
-      ?.map { it.name }?.toSet()
-      ?: emptySet()
+    val declaredPackageNames = if (context.manager.installedMightBeTransitive) {
+      context.manager.extractDependenciesCached()?.getOrNull() ?: emptyList()
+    }
+    else {
+      context.manager.listInstalledPackages()
+    }.mapTo(mutableSetOf()) { it.name }
 
     withContext(Dispatchers.Default) {
       val packageIndex = PackageIndex(context.manager)
@@ -418,9 +421,18 @@ class PyPackagingToolWindowService(val project: Project, val serviceScope: Corou
     }
   }
 
-  private class PackageIndex(manager: PythonPackageManager) {
-    val installedByName: Map<String, PythonPackage> = manager.listInstalledPackagesSnapshot().associateBy { it.name }
-    val outdated: Map<String, PythonOutdatedPackage> = manager.listOutdatedPackagesSnapshot()
+  private class PackageIndex(
+    val installedByName: Map<String, PythonPackage>,
+    val outdated: Map<String, PythonOutdatedPackage>,
+  ) {
+    companion object {
+      suspend operator fun invoke(manager: PythonPackageManager): PackageIndex {
+        return PackageIndex(
+          installedByName = manager.listInstalledPackages().associateBy { it.name },
+          outdated = manager.listOutdatedPackages(),
+        )
+      }
+    }
   }
 
   private suspend fun buildPackagesFromTree(
