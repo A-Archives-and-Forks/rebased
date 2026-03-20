@@ -24,6 +24,7 @@ import java.io.FileNotFoundException
 import java.io.IOException
 import java.io.InputStream
 import java.net.URI
+import java.net.UnknownHostException
 import java.net.http.HttpResponse
 import java.util.concurrent.atomic.AtomicReference
 
