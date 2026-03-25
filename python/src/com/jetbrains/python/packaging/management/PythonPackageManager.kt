@@ -173,18 +173,20 @@ abstract class PythonPackageManager @ApiStatus.Internal constructor(
       return it
     }
 
-    if (packages != installedPackages) {
-      if (!isInit) {
-        refreshPaths(project, sdk)
-      }
+    val changed = packages != installedPackages
+    if (changed) {
       installedPackages = packages
-      PyPackageCoroutine.launch(project, NON_INTERACTIVE_ROOT_TRACE_CONTEXT) {
-        reloadOutdatedPackages()
-      }.cancelOnDispose(this)
 
       ApplicationManager.getApplication().messageBus.apply {
         syncPublisher(PACKAGE_MANAGEMENT_TOPIC).packagesChanged(sdk)
         syncPublisher(PyPackageManager.PACKAGE_MANAGER_TOPIC).packagesRefreshed(sdk)
+      }
+
+      PyPackageCoroutine.launch(project, NON_INTERACTIVE_ROOT_TRACE_CONTEXT) {
+        reloadOutdatedPackages()
+      }.cancelOnDispose(this)
+      if (!isInit) {
+        refreshPaths(project, sdk)
       }
     }
 
@@ -278,6 +280,16 @@ abstract class PythonPackageManager @ApiStatus.Internal constructor(
    */
   @ApiStatus.Internal
   open suspend fun extractDependencies(): PyResult<List<PythonPackage>>? = null
+
+  /**
+   * Returns all packages that are declared in the project configuration or are transitive
+   * dependencies of declared packages. Used by the UI to distinguish "declared" packages from
+   * standalone-installed ones.
+   *
+   * Returns null if this package manager doesn't support this operation.
+   */
+  @ApiStatus.Internal
+  open suspend fun allDeclaredPackages(): List<PythonPackage>? = null
 
   /**
    * Extracts project top-level dependencies with caching based on dependency file modification time.

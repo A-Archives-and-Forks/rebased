@@ -8,9 +8,11 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.modules
 import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.python.pyproject.PyProjectToml
 import com.intellij.util.cancelOnDispose
 import com.jetbrains.python.PyBundle.message
 import com.jetbrains.python.Result
+import com.jetbrains.python.getOrNull
 import com.jetbrains.python.errorProcessing.PyResult
 import com.jetbrains.python.packaging.PyPackageName
 import com.jetbrains.python.packaging.PyRequirement
@@ -22,6 +24,7 @@ import com.jetbrains.python.packaging.management.PythonPackageInstallRequest
 import com.jetbrains.python.packaging.management.PythonPackageManager
 import com.jetbrains.python.packaging.management.PythonPackageManager.Companion.PackageManagerErrorMessage
 import com.jetbrains.python.packaging.management.PythonPackageManagerProvider
+import com.jetbrains.python.packaging.packageRequirements.PythonPackageRequirementsTreeExtractor
 import com.jetbrains.python.packaging.management.PythonRepositoryManager
 import com.jetbrains.python.packaging.management.resolvePyProjectToml
 import com.jetbrains.python.packaging.pip.PipRepositoryManager
@@ -50,7 +53,8 @@ internal class UvPackageManager(project: Project, sdk: Sdk, uvExecutionContextDe
   override suspend fun installPackageCommand(installRequest: PythonPackageInstallRequest, options: List<String>, module: Module?): PyResult<Unit> {
     return withUv { uv ->
       if (module != null) {
-        uv.addDependency(installRequest, emptyList(), PyWorkspaceMember(module.name))
+        val packageName = resolvePackageName(module)
+        uv.addDependency(installRequest, emptyList(), PyWorkspaceMember(packageName))
       }
       else if (sdk.uvUsePackageManagement) {
         uv.installPackage(installRequest, emptyList())
@@ -100,12 +104,18 @@ internal class UvPackageManager(project: Project, sdk: Sdk, uvExecutionContextDe
     return listAllTopLevelPackages()
   }
 
+  override suspend fun allDeclaredPackages(): List<PythonPackage> {
+    val output = withUv { uv -> uv.listProjectStructureTree() }.getOrNull() ?: return emptyList()
+    return PythonPackageRequirementsTreeExtractor.collectAllPackages(output)
+  }
+
   private suspend fun listAllTopLevelPackages(): PyResult<List<PythonPackage>> {
     val modules = readAction { project.modules }
     val allPackages = mutableSetOf<PythonPackage>()
     var lastFailure: PyResult<List<PythonPackage>>? = null
     for (module in modules) {
-      val result = withUv { uv -> uv.listTopLevelPackages(module) }
+      val packageName = resolvePackageName(module)
+      val result = withUv { uv -> uv.listTopLevelPackages(PyWorkspaceMember(packageName)) }
       when (result) {
         is Result.Success -> allPackages.addAll(result.result)
         is Result.Failure -> lastFailure = result
@@ -181,6 +191,11 @@ internal class UvPackageManager(project: Project, sdk: Sdk, uvExecutionContextDe
       }
       reloadPackages().mapSuccess { }
     }
+  }
+
+  private suspend fun resolvePackageName(module: Module): String {
+    val pyProjectFile = PyProjectToml.findFile(module) ?: return module.name
+    return PyProjectToml.parseCached(module.project, pyProjectFile)?.project?.name ?: module.name
   }
 
   // TODO PY-87712 Double check for remotes
