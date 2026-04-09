@@ -156,6 +156,7 @@ cp -r "LICENSE" "$ROOT/lib/bundles/vue"
 cp -r "package.json" "$ROOT/lib/bundles/vue"
 cp -r "README.md" "$ROOT/lib/bundles/vue"
 cp -r "syntaxes" "$ROOT/lib/bundles/vue"
+cp -r "languages" "$ROOT/lib/bundles/vue"
 
 popd
 
