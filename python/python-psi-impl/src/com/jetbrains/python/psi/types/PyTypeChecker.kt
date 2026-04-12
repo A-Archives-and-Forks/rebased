@@ -10,14 +10,14 @@ import com.intellij.psi.PsiNamedElement
 import com.intellij.util.ArrayUtil
 import com.intellij.util.containers.ContainerUtil
 import com.jetbrains.python.PyNames
+import com.jetbrains.python.PyNames.isPrivate
+import com.jetbrains.python.PyNames.isProtected
 import com.jetbrains.python.PythonRuntimeService
 import com.jetbrains.python.ast.PyAstFunction
 import com.jetbrains.python.codeInsight.dataflow.scope.ScopeUtil
 import com.jetbrains.python.codeInsight.typing.PyTypingTypeProvider
 import com.jetbrains.python.codeInsight.typing.inspectProtocolSubclass
 import com.jetbrains.python.codeInsight.typing.isProtocol
-import com.jetbrains.python.PyNames.isPrivate
-import com.jetbrains.python.PyNames.isProtected
 import com.jetbrains.python.psi.AccessDirection
 import com.jetbrains.python.psi.LanguageLevel
 import com.jetbrains.python.psi.PyClass
@@ -640,7 +640,16 @@ object PyTypeChecker {
     val superClass = expected.pyClass
     val subClass = actual.pyClass
 
-    if (!subClass.isSubclass(superClass, context) && expected.isProtocol(context)) {
+    // For class definitions with custom metaclasses, always use protocol matching.
+    // Python's data model uses type(obj).__iter__ (metaclass method) for dunder protocols on class objects,
+    // so even if the class explicitly inherits from e.g., Iterable via a base class, the metaclass method takes priority.
+    val isDefinitionWithCustomMetaclass = actual.isDefinition && run {
+      val metaClassType = actual.getMetaClassType(context, true)
+      metaClassType is PyClassType && PyNames.TYPE != metaClassType.name
+    }
+
+    if (expected.isProtocol(context) &&
+        (!subClass.isSubclass(superClass, context) || isDefinitionWithCustomMetaclass)) {
       return Optional.of(matchProtocols(expected, actual, matchContext))
     }
 
@@ -658,9 +667,9 @@ object PyTypeChecker {
   }
 
   private fun matchProtocols(expected: PyClassType, actual: PyClassType, matchContext: MatchContext): Boolean {
-    val expectedSubstitutions = collectTypeSubstitutions(expected, matchContext.context)
-    val actualSubstitutions = collectTypeSubstitutions(actual, matchContext.context)
-
+    val context = matchContext.context
+    val expectedSubstitutions = collectTypeSubstitutions(expected, context)
+    val actualSubstitutions = collectTypeSubstitutions(actual, context)
 
     // See https://typing.python.org/en/latest/spec/generics.html#use-in-protocols
     // > If a protocol uses Self in methods or attribute annotations, then a class Foo is assignable to the protocol
@@ -669,22 +678,17 @@ object PyTypeChecker {
     // It should be equivalent to replacing Self in the protocol with the Foo class we're matching it with.
     val protocolSubstitutions = GenericSubstitutions()
     protocolSubstitutions.qualifierType = actual.toInstance()
-    val protocolContext =
-      MatchContext(matchContext.context, protocolSubstitutions, matchContext.reversedSubstitutions)
-    for (pair in inspectProtocolSubclass(
-      expected, actual,
-      matchContext.context
-    )) {
+    val protocolContext = MatchContext(context, protocolSubstitutions, matchContext.reversedSubstitutions)
+
+    for (pair in inspectProtocolSubclass(expected, actual, context)) {
       val protocolMember = pair.first
       val subclassElementMembers = pair.second
       if (ContainerUtil.isEmpty(subclassElementMembers)) {
         return false
       }
+      val rawProtocolElementType = dropSelfInProtocolMember(expected, protocolMember.type, context)
 
-      val rawProtocolElementType =
-        dropSelfIfNeeded(expected, protocolMember.type, matchContext.context)
-
-      val protocolElementType = substitute(rawProtocolElementType, expectedSubstitutions, matchContext.context)
+      val protocolElementType = substitute(rawProtocolElementType, expectedSubstitutions, context)
       val elementResult: Boolean =
         subclassElementMembers.any { subclassElementMember: PyTypeMember? ->
           if (protocolMember.isWritable && !subclassElementMember!!.isWritable) {
@@ -699,8 +703,10 @@ object PyTypeChecker {
             return@any false
           }
 
-          var subclassElementType = dropSelfIfNeeded(actual, subclassElementMember.type, matchContext.context)
-          subclassElementType = substitute(subclassElementType, actualSubstitutions, matchContext.context)
+          var subclassElementType = substituteSelfInProtocolMember(actual, subclassElementMember.type, context)
+          subclassElementType = dropSelfInProtocolMember(expected, subclassElementType, context)
+          subclassElementType = substitute(subclassElementType, actualSubstitutions, context)
+
           match(protocolElementType, subclassElementType, protocolContext).orElse(true)!!
         }
 
@@ -725,6 +731,7 @@ object PyTypeChecker {
   }
 
   private fun match(expectedProtocol: PyClassType, actualModule: PyModuleType, matchContext: MatchContext): Boolean {
+    val context = matchContext.context
     val module = actualModule.module
 
     val moduleElements =
@@ -737,11 +744,11 @@ object PyTypeChecker {
         .associateBy { it.name }
 
     val protocolElements =
-      inspectProtocolSubclass(expectedProtocol, expectedProtocol, matchContext.context)
+      inspectProtocolSubclass(expectedProtocol, expectedProtocol, context)
 
     if (protocolElements.size != moduleElements.size) return false
 
-    val substitutions = collectTypeSubstitutions(expectedProtocol, matchContext.context)
+    val substitutions = collectTypeSubstitutions(expectedProtocol, context)
     for (pair in protocolElements) {
       val pm = pair.first.element
       if (pm !is PsiNamedElement) {
@@ -751,12 +758,9 @@ object PyTypeChecker {
       val moduleElement = moduleElements[name]
       if (moduleElement != null) {
         val expectedProtocolMemberType =
-          substitute(
-            dropSelfIfNeeded(expectedProtocol, pair.first.type, matchContext.context), substitutions,
-            matchContext.context
-          )
-        val actualModuleElementType = matchContext.context.getType(moduleElement)
-        if (!match(expectedProtocolMemberType, actualModuleElementType, matchContext.context)) {
+          substitute(dropSelfInProtocolMember(expectedProtocol, pair.first.type, context), substitutions, context)
+        val actualModuleElementType = context.getType(moduleElement)
+        if (!match(expectedProtocolMemberType, actualModuleElementType, context)) {
           return false
         }
         continue
@@ -766,17 +770,28 @@ object PyTypeChecker {
     return true
   }
 
-  private fun dropSelfIfNeeded(
-    classType: PyClassType,
-    elementType: PyType?,
-    context: TypeEvalContext,
-  ): PyType? {
+  private fun dropSelfInProtocolMember(classType: PyClassType, elementType: PyType?, context: TypeEvalContext): PyType? {
     if (elementType is PyCallableType) {
       if (PyUtil.isInitOrNewMethod(elementType.callable) || !classType.isDefinition) {
         return elementType.dropSelf(context)
       }
     }
     return elementType
+  }
+
+  /**
+   * Binds TypeVars from the self parameter annotation of protocol member to [classType].
+   */
+  private fun substituteSelfInProtocolMember(classType: PyClassType, elementType: PyType?, context: TypeEvalContext): PyType? {
+    if (elementType !is PyCallableType) return elementType
+    val parameters = elementType.getParameters(context)
+    if (parameters.isNullOrEmpty() || !parameters.first().isSelf) return elementType
+    val selfParamType = parameters.first().getType(context)
+    if (selfParamType !is PyTypeVarType) return elementType
+    val selfSubstitutions = GenericSubstitutions()
+    match(selfParamType, classType, MatchContext(context, selfSubstitutions, false))
+    if (selfSubstitutions.typeVars.isEmpty()) return elementType
+    return substitute(elementType, selfSubstitutions, context) as? PyCallableType ?: elementType
   }
 
   // https://typing.python.org/en/latest/spec/tuples.html#type-compatibility-rules
@@ -1208,50 +1223,61 @@ object PyTypeChecker {
     substitutions: GenericSubstitutions?,
     context: TypeEvalContext,
   ): GenericSubstitutions {
-    val substitutions = substitutions ?: GenericSubstitutions()
-    val typeParamsFromReturnType = returnType.collectGenerics(context)
-    // TODO Handle unmatched TypeVarTuples here as well
-    if (typeParamsFromReturnType.typeVars.isEmpty() && typeParamsFromReturnType.paramSpecs.isEmpty()) {
-      return substitutions
-    }
-    val typeParamsFromParameterTypes = GenericsImpl()
-    for (parameter in parameters) {
-      collectGenerics(parameter.getArgumentType(context), context, typeParamsFromParameterTypes)
+    val parameterTypes = parameters.map { it.getArgumentType(context) }
+    return substituteUnboundTypeVarsWithDefaultOrAny(returnType, parameterTypes, substitutions, context)
+  }
+
+  private fun substituteUnboundTypeVarsWithDefaultOrAny(
+    targetType: PyType?,
+    typeParameterSources: List<PyType?>,
+    substitutions: GenericSubstitutions?,
+    context: TypeEvalContext,
+  ): GenericSubstitutions {
+    val resolvableTypeParams = GenericsImpl()
+    for (parameterType in typeParameterSources) {
+      collectGenerics(parameterType, context, resolvableTypeParams)
     }
 
-    for (returnTypeParam in typeParamsFromReturnType.typeVars) {
-      val canGetBoundFromArguments = returnTypeParam in typeParamsFromParameterTypes.typeVars ||
-                                     returnTypeParam.invert() in typeParamsFromParameterTypes.typeVars
-      val isAlreadyBound = returnTypeParam in substitutions.typeVars ||
-                           returnTypeParam.invert() in substitutions.typeVars
-      if (canGetBoundFromArguments && !isAlreadyBound) {
-        @Suppress("UNCHECKED_CAST")
-        substitutions.putTypeVar(returnTypeParam, returnTypeParam.defaultType as Ref<PyType?>?, KeyImpl)
-      }
+    val existingSubstitutions = substitutions ?: GenericSubstitutions()
+    val requiredTypeParams = targetType.collectGenerics(context)
+    // TODO Handle unmatched TypeVarTuples here as well
+    if (requiredTypeParams.typeVars.isEmpty() && requiredTypeParams.paramSpecs.isEmpty()) {
+      return existingSubstitutions
     }
-    for (paramSpecType in typeParamsFromReturnType.paramSpecs) {
-      val canGetBoundFromArguments = paramSpecType in typeParamsFromParameterTypes.paramSpecs
-      val isAlreadyBound = paramSpecType in substitutions.paramSpecs
-      if (canGetBoundFromArguments && !isAlreadyBound) {
-        if (paramSpecType.defaultType != null) {
-          substitutions.putParamSpec(paramSpecType, Ref.deref(paramSpecType.defaultType), KeyImpl)
+
+    for (typeVar in requiredTypeParams.typeVars) {
+      val isResolvable = resolvableTypeParams.typeVars.contains(typeVar) ||
+                         resolvableTypeParams.typeVars.contains(typeVar.invert())
+      val isAlreadyBound = existingSubstitutions.typeVars.containsKey(typeVar) ||
+                           existingSubstitutions.typeVars.containsKey(typeVar.invert())
+      if (isResolvable && !isAlreadyBound) {
+        if (typeVar.defaultType != null) {
+          @Suppress("UNCHECKED_CAST")
+          existingSubstitutions.putTypeVar(typeVar, typeVar.defaultType as Ref<PyType?>?, KeyImpl)
         }
         else {
-          substitutions.putParamSpec(
-            paramSpecType,
-            PyCallableParameterListTypeImpl(
-              listOf(
-                PyCallableParameterImpl.positionalNonPsi("args", null),
-                PyCallableParameterImpl.keywordNonPsi("kwargs", null),
-              )
-            ),
-            KeyImpl,
+          existingSubstitutions.putTypeVar(typeVar, Ref.create<PyType?>(null), KeyImpl)
+        }
+      }
+    }
+    for (paramSpecType in requiredTypeParams.paramSpecs) {
+      val isResolvable = resolvableTypeParams.paramSpecs.contains(paramSpecType)
+      val isAlreadyBound = existingSubstitutions.paramSpecs.containsKey(paramSpecType)
+      if (isResolvable && !isAlreadyBound) {
+        if (paramSpecType.defaultType != null) {
+          existingSubstitutions.putParamSpec(paramSpecType, Ref.deref<PyCallableParameterVariadicType?>(paramSpecType.defaultType), KeyImpl)
+        }
+        else {
+          existingSubstitutions.putParamSpec(paramSpecType, PyCallableParameterListTypeImpl(
+            listOf(PyCallableParameterImpl.positionalNonPsi("args", null),
+                              PyCallableParameterImpl.keywordNonPsi("kwargs", null))), KeyImpl
           )
         }
       }
     }
-    return substitutions
+    return existingSubstitutions
   }
+
 
   private fun <T : PyInstantiableType<T>> PyInstantiableType<T>.invert(): T {
     return if (isDefinition) toInstance() else toClass()
@@ -1421,7 +1447,7 @@ object PyTypeChecker {
         // A.a_method # type: Callable[[A], A]
         // B wasn't considered as the receiver type in the first place, instead of filtering it out during substitution
         // (see PyTypingTest.testMatchSelfUnionType)
-        return qualifierType.toStream()
+        val result = qualifierType.toStream()
           .map<PyType?> { qType: PyType? ->
             if (qType is PyInstantiableType<*>) {
               return@map if (selfScopeClassType.isDefinition) qType.toClass() else qType.toInstance()
@@ -1430,6 +1456,9 @@ object PyTypeChecker {
           }
           .filter { normalizedQType: PyType? -> match(selfScopeClassType, normalizedQType, context) }
           .collect(PyTypeUtil.toUnion(qualifierType))
+        // If no qualifier type matched Self's scope class, Self was probably inferred from a different context
+        // (e.g. protocol matching for a parameter type) and should be preserved as-is.
+        return result ?: selfType
       }
 
       override fun visitPyGenericType(genericType: PyCollectionType): PyType {
@@ -1947,8 +1976,13 @@ object PyTypeChecker {
   fun convertToType(type: PyType?, superType: PyClassType, context: TypeEvalContext): PyType? {
     val matchContext = MatchContext(context, GenericSubstitutions(), false)
     val matched = match(superType, type, matchContext)
-    if (matched.orElse(false)!!) {
-      return substitute(superType, matchContext.mySubstitutions, context)
+    if (matched.orElse(false)) {
+      // There is a tricky problem with handling type parameter binds to Any. Namely, during matching list[Any] to Iterable[T@Iterable],
+      // we don't keep the bind T@Iterable -> Any (see the implementation of `match(PyTypeVarType, PyType, MatchContext)`).
+      // As a workaround, until we migrate to type checking with CSP, we consider that
+      // all parameter of the super types should be bound, and if they aren't, we fall back them to Any.
+      val substitutions = substituteUnboundTypeVarsWithDefaultOrAny(superType, listOf(superType), matchContext.mySubstitutions, context)
+      return substitute(superType, substitutions, context)
     }
     return null
   }

@@ -5,6 +5,7 @@ import com.intellij.openapi.extensions.ExtensionPointName
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.projectRoots.Sdk
 import com.jetbrains.python.packaging.PyPackageName
+import com.jetbrains.python.packaging.common.PythonPackage
 import org.jetbrains.annotations.ApiStatus
 
 @ApiStatus.Internal
@@ -25,7 +26,20 @@ interface PythonPackageRequirementsTreeExtractor {
       PythonPackageRequirementsTreeExtractorProvider.EP_NAME.extensionList
         .firstNotNullOfOrNull { it.createExtractor(sdk, project) }
 
-    fun parseTree(lines: List<String>): PackageNode = treeParser.parseTree(lines)
+    fun parseTrees(lines: List<String>): List<PackageNode> = treeParser.parseTrees(lines)
+
+    fun collectAllPackages(treeOutput: String): List<PythonPackage> {
+      val packages = mutableSetOf<String>()
+      val result = mutableListOf<PythonPackage>()
+      fun collect(node: PackageNode) {
+        if (packages.add(node.name.name)) {
+          result.add(PythonPackage(node.name.name, "", false))
+        }
+        node.children.forEach { collect(it) }
+      }
+      parseTrees(treeOutput.lines()).forEach { collect(it) }
+      return result
+    }
   }
 }
 
@@ -91,9 +105,19 @@ class TreeParser {
     val nextIndex: Int,
   )
 
-  fun parseTree(lines: List<String>): PackageNode {
-    val (node, _) = parseLevel(lines, calculateIndentLevel(lines.first()), 0)
-    return node
+  fun parseTrees(lines: List<String>): List<PackageNode> {
+    val nonBlankLines = lines.withIndex().filterNot { it.value.isBlank() }
+    val result = mutableListOf<PackageNode>()
+    var currentIndex = 0
+
+    while (currentIndex < nonBlankLines.size) {
+      val (originalIndex, line) = nonBlankLines[currentIndex]
+      val (node, nextIndex) = parseLevel(lines, calculateIndentLevel(line), originalIndex)
+      result.add(node)
+      currentIndex = nonBlankLines.indexOfFirst { it.index >= nextIndex }.takeIf { it != -1 } ?: nonBlankLines.size
+    }
+
+    return result
   }
 
   private fun parseLevel(lines: List<String>, startIndent: Int, index: Int): ParseResult {
@@ -137,11 +161,25 @@ class TreeParser {
     private const val CORNER_ASCII = '`'
     private const val HORIZONTAL_ASCII = '-'
 
-    private val INDENT_PREFIXES = charArrayOf(' ', VERTICAL, BRANCH, CORNER)
+    private val INDENT_PREFIXES = charArrayOf(' ', VERTICAL, BRANCH, CORNER, VERTICAL_ASCII, CORNER_ASCII)
 
     fun isRootLine(line: String): Boolean {
       val first = line.firstOrNull() ?: return false
       return first !in INDENT_PREFIXES
+    }
+
+    fun splitIntoPackageGroups(lines: List<String>): List<List<String>> {
+      val groups = mutableListOf<MutableList<String>>()
+      for (line in lines) {
+        if (line.isBlank()) continue
+        if (isRootLine(line)) {
+          groups.add(mutableListOf(line))
+        }
+        else {
+          groups.lastOrNull()?.add(line)
+        }
+      }
+      return groups
     }
 
     private val TREE_LINE_REGEX = Regex(

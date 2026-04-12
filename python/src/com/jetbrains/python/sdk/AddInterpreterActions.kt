@@ -31,8 +31,8 @@ import com.intellij.psi.util.CachedValuesManager
 import com.intellij.psi.util.ParameterizedCachedValue
 import com.intellij.python.pyproject.model.api.ModuleCreateInfo
 import com.intellij.python.pyproject.model.api.getModuleInfo
+import com.jetbrains.python.NON_INTERACTIVE_ROOT_TRACE_CONTEXT
 import com.jetbrains.python.PyBundle
-import com.jetbrains.python.TraceContext
 import com.jetbrains.python.run.PythonInterpreterTargetEnvironmentFactory
 import com.jetbrains.python.run.allowCreationTargetOfThisType
 import com.jetbrains.python.sdk.ModuleOrProject.ModuleAndProject
@@ -138,7 +138,7 @@ internal class AddInterpreterOnTargetAction(
   }
 
   override fun createDialog(): TargetEnvironmentWizard? {
-    val wizard = TargetEnvironmentWizard.createWizard(project, targetType, PythonLanguageRuntimeType.getInstance())
+    val wizard = TargetEnvironmentWizard.createWizard(project, targetType, PythonLanguageRuntimeType.Helper.getInstance())
 
     wizard?.let {
       Disposer.register(it.disposable, Disposable {
@@ -158,22 +158,6 @@ internal class AddInterpreterOnTargetAction(
     }
     onSdkCreated(sdk)
   }
-}
-
-@ApiStatus.Internal
-fun switchToSdk(module: Module, sdk: Sdk, currentSdk: Sdk?) {
-  val project = module.project
-  (sdk.sdkType as PythonSdkType).setupSdkPaths(sdk)
-
-  removeTransferredRootsFromModulesWithInheritedSdk(project, currentSdk)
-  project.pythonSdk = sdk
-  transferRootsToModulesWithInheritedSdk(project, sdk)
-
-  removeTransferredRoots(module, currentSdk)
-  module.pythonSdk = sdk
-  transferRoots(module, sdk)
-
-  module.excludeInnerVirtualEnv(sdk)
 }
 
 @Service
@@ -203,7 +187,7 @@ private class ToolDetectionService(project: Project, val coroutineScope: Corouti
 
   private fun detectBestToolAsync(module: Module): CachedValueProvider.Result<Deferred<CreateSdkInfoWithTool?>> {
     val result = coroutineScope.async {
-      withContext(TraceContext(PyBundle.message("trace.context.python.tool.detection.service.detect.tools.for.module", module.name))) {
+      withContext(NON_INTERACTIVE_ROOT_TRACE_CONTEXT) {
         detectBestToolForModule(module)
       }
     }

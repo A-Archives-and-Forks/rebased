@@ -473,6 +473,7 @@
       <module fileurl="file://$PROJECT_DIR$/plugins/gradle/java/intellij.gradle.java.tests.iml" filepath="$PROJECT_DIR$/plugins/gradle/java/intellij.gradle.java.tests.iml" />
       <module fileurl="file://$PROJECT_DIR$/plugins/gradle/java/toml/intellij.gradle.java.toml.iml" filepath="$PROJECT_DIR$/plugins/gradle/java/toml/intellij.gradle.java.toml.iml" />
       <module fileurl="file://$PROJECT_DIR$/plugins/gradle/jps-plugin/intellij.gradle.jps.iml" filepath="$PROJECT_DIR$/plugins/gradle/jps-plugin/intellij.gradle.jps.iml" />
+      <module fileurl="file://$PROJECT_DIR$/plugins/gradle/kotlin/intellij.gradle.kotlin.iml" filepath="$PROJECT_DIR$/plugins/gradle/kotlin/intellij.gradle.kotlin.iml" />
       <module fileurl="file://$PROJECT_DIR$/plugins/gradle/kotlin/tests/intellij.gradle.kotlin.tests.iml" filepath="$PROJECT_DIR$/plugins/gradle/kotlin/tests/intellij.gradle.kotlin.tests.iml" />
       <module fileurl="file://$PROJECT_DIR$/plugins/gradle/native/intellij.gradle.native.iml" filepath="$PROJECT_DIR$/plugins/gradle/native/intellij.gradle.native.iml" />
       <module fileurl="file://$PROJECT_DIR$/plugins/gradle/native/tooling/intellij.gradle.native.tooling.iml" filepath="$PROJECT_DIR$/plugins/gradle/native/tooling/intellij.gradle.native.tooling.iml" />
@@ -803,7 +804,6 @@
       <module fileurl="file://$PROJECT_DIR$/plugins/kotlin/navigation/tests/intellij.kotlin.navigation.tests.iml" filepath="$PROJECT_DIR$/plugins/kotlin/navigation/tests/intellij.kotlin.navigation.tests.iml" />
       <module fileurl="file://$PROJECT_DIR$/plugins/kotlin/onboarding/intellij.kotlin.onboarding.iml" filepath="$PROJECT_DIR$/plugins/kotlin/onboarding/intellij.kotlin.onboarding.iml" />
       <module fileurl="file://$PROJECT_DIR$/plugins/kotlin/onboarding-gradle/intellij.kotlin.onboarding.gradle.iml" filepath="$PROJECT_DIR$/plugins/kotlin/onboarding-gradle/intellij.kotlin.onboarding.gradle.iml" />
-      <module fileurl="file://$PROJECT_DIR$/plugins/kotlin/onboarding-maven/intellij.kotlin.onboarding.maven.iml" filepath="$PROJECT_DIR$/plugins/kotlin/onboarding-maven/intellij.kotlin.onboarding.maven.iml" />
       <module fileurl="file://$PROJECT_DIR$/plugins/kotlin/onboarding-promoter/intellij.kotlin.onboarding.promoter.iml" filepath="$PROJECT_DIR$/plugins/kotlin/onboarding-promoter/intellij.kotlin.onboarding.promoter.iml" />
       <module fileurl="file://$PROJECT_DIR$/plugins/kotlin/kotlin.performanceExtendedPlugin/intellij.kotlin.performanceExtendedPlugin.iml" filepath="$PROJECT_DIR$/plugins/kotlin/kotlin.performanceExtendedPlugin/intellij.kotlin.performanceExtendedPlugin.iml" />
       <module fileurl="file://$PROJECT_DIR$/plugins/kotlin/intellij.kotlin.plugin.community.main.iml" filepath="$PROJECT_DIR$/plugins/kotlin/intellij.kotlin.plugin.community.main.iml" />
@@ -854,6 +854,7 @@
       <module fileurl="file://$PROJECT_DIR$/libraries/asm-tools/intellij.libraries.asm.tools.iml" filepath="$PROJECT_DIR$/libraries/asm-tools/intellij.libraries.asm.tools.iml" />
       <module fileurl="file://$PROJECT_DIR$/libraries/assertj-core/intellij.libraries.assertj.core.iml" filepath="$PROJECT_DIR$/libraries/assertj-core/intellij.libraries.assertj.core.iml" />
       <module fileurl="file://$PROJECT_DIR$/libraries/automaton/intellij.libraries.automaton.iml" filepath="$PROJECT_DIR$/libraries/automaton/intellij.libraries.automaton.iml" />
+      <module fileurl="file://$PROJECT_DIR$/libraries/batik/intellij.libraries.batik.iml" filepath="$PROJECT_DIR$/libraries/batik/intellij.libraries.batik.iml" />
       <module fileurl="file://$PROJECT_DIR$/libraries/blockmap/intellij.libraries.blockmap.iml" filepath="$PROJECT_DIR$/libraries/blockmap/intellij.libraries.blockmap.iml" />
       <module fileurl="file://$PROJECT_DIR$/libraries/bouncy-castle-pgp/intellij.libraries.bouncy.castle.pgp.iml" filepath="$PROJECT_DIR$/libraries/bouncy-castle-pgp/intellij.libraries.bouncy.castle.pgp.iml" />
       <module fileurl="file://$PROJECT_DIR$/libraries/bouncy-castle-provider/intellij.libraries.bouncy.castle.provider.iml" filepath="$PROJECT_DIR$/libraries/bouncy-castle-provider/intellij.libraries.bouncy.castle.provider.iml" />
@@ -1491,8 +1492,9 @@
       <module fileurl="file://$PROJECT_DIR$/python/python-markdown/intellij.python.markdown.iml" filepath="$PROJECT_DIR$/python/python-markdown/intellij.python.markdown.iml" />
       <module fileurl="file://$PROJECT_DIR$/python/intellij.python.ml.features/intellij.python.ml.features.iml" filepath="$PROJECT_DIR$/python/intellij.python.ml.features/intellij.python.ml.features.iml" />
       <module fileurl="file://$PROJECT_DIR$/python/python-parser/intellij.python.parser.iml" filepath="$PROJECT_DIR$/python/python-parser/intellij.python.parser.iml" />
-      <module fileurl="file://$PROJECT_DIR$/python/python-process-output/intellij.python.processOutput.iml" filepath="$PROJECT_DIR$/python/python-process-output/intellij.python.processOutput.iml" />
-      <module fileurl="file://$PROJECT_DIR$/python/python-process-output/impl/intellij.python.processOutput.impl.iml" filepath="$PROJECT_DIR$/python/python-process-output/impl/intellij.python.processOutput.impl.iml" />
+      <module fileurl="file://$PROJECT_DIR$/python/python-process-output/backend/intellij.python.processOutput.backend.iml" filepath="$PROJECT_DIR$/python/python-process-output/backend/intellij.python.processOutput.backend.iml" />
+      <module fileurl="file://$PROJECT_DIR$/python/python-process-output/common/intellij.python.processOutput.common.iml" filepath="$PROJECT_DIR$/python/python-process-output/common/intellij.python.processOutput.common.iml" />
+      <module fileurl="file://$PROJECT_DIR$/python/python-process-output/frontend/intellij.python.processOutput.frontend.iml" filepath="$PROJECT_DIR$/python/python-process-output/frontend/intellij.python.processOutput.frontend.iml" />
       <module fileurl="file://$PROJECT_DIR$/python/python-psi-api/intellij.python.psi.iml" filepath="$PROJECT_DIR$/python/python-psi-api/intellij.python.psi.iml" />
       <module fileurl="file://$PROJECT_DIR$/python/python-psi-impl/intellij.python.psi.impl.iml" filepath="$PROJECT_DIR$/python/python-psi-impl/intellij.python.psi.impl.iml" />
       <module fileurl="file://$PROJECT_DIR$/python/intellij.python.pydev.iml" filepath="$PROJECT_DIR$/python/intellij.python.pydev.iml" />

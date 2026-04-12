@@ -370,6 +370,7 @@ libraries/asm
 libraries/asm-tools
 libraries/assertj-core
 libraries/automaton
+libraries/batik
 libraries/blockmap
 libraries/bouncy-castle-pgp
 libraries/bouncy-castle-provider
@@ -1009,6 +1010,7 @@ plugins/gradle/java/plugin
 plugins/gradle/java/properties
 plugins/gradle/java/toml
 plugins/gradle/jps-plugin
+plugins/gradle/kotlin
 plugins/gradle/kotlin/tests
 plugins/gradle/native
 plugins/gradle/native/tooling
@@ -1316,7 +1318,6 @@ plugins/kotlin/navigation
 plugins/kotlin/navigation/tests
 plugins/kotlin/onboarding
 plugins/kotlin/onboarding-gradle
-plugins/kotlin/onboarding-maven
 plugins/kotlin/onboarding-promoter
 plugins/kotlin/plugin
 plugins/kotlin/plugin-updater
@@ -1541,8 +1542,9 @@ python/python-markdown
 python/python-parser
 python/python-poetry/backend
 python/python-poetry/common
-python/python-process-output
-python/python-process-output/impl
+python/python-process-output/backend
+python/python-process-output/common
+python/python-process-output/frontend
 python/python-psi-api
 python/python-psi-impl
 python/python-pyproject

@@ -1059,6 +1059,7 @@ f:com.intellij.collaboration.ui.codereview.diff.viewer.DiffViewerUtilKt
 - java.lang.Enum
 - sf:SINGLE_COMMIT_REVIEW:com.intellij.collaboration.ui.codereview.editor.CodeReviewInlayModel$Ranged$Adjustable$AdjustmentDisabledReason
 - sf:SUGGESTED_CHANGE:com.intellij.collaboration.ui.codereview.editor.CodeReviewInlayModel$Ranged$Adjustable$AdjustmentDisabledReason
+- sf:UNSUPPORTED_VERSION:com.intellij.collaboration.ui.codereview.editor.CodeReviewInlayModel$Ranged$Adjustable$AdjustmentDisabledReason
 - s:getEntries():kotlin.enums.EnumEntries
 - s:valueOf(java.lang.String):com.intellij.collaboration.ui.codereview.editor.CodeReviewInlayModel$Ranged$Adjustable$AdjustmentDisabledReason
 - s:values():com.intellij.collaboration.ui.codereview.editor.CodeReviewInlayModel$Ranged$Adjustable$AdjustmentDisabledReason[]
@@ -1627,7 +1628,8 @@ f:com.intellij.collaboration.ui.codereview.diff.viewer.DiffViewerUtilKt
 - sf:bindSelected(com.intellij.ui.dsl.builder.Cell,kotlinx.coroutines.flow.Flow,kotlin.jvm.functions.Function1):com.intellij.ui.dsl.builder.Cell
 - sf:bindSelected(javax.swing.JToggleButton,kotlinx.coroutines.flow.Flow,kotlin.jvm.functions.Function1):V
 - sf:bindSelectedIn(com.intellij.ui.dsl.builder.Cell,kotlinx.coroutines.CoroutineScope,kotlinx.coroutines.flow.MutableStateFlow):com.intellij.ui.dsl.builder.Cell
-- sf:bindSelectedIn(javax.swing.JCheckBox,kotlinx.coroutines.CoroutineScope,kotlinx.coroutines.flow.MutableStateFlow):V
+- bsf:bindSelectedIn(javax.swing.JCheckBox,kotlinx.coroutines.CoroutineScope,kotlinx.coroutines.flow.MutableStateFlow):V
+- sf:bindSelectedIn(javax.swing.JToggleButton,kotlinx.coroutines.CoroutineScope,kotlinx.coroutines.flow.MutableStateFlow):V
 - sf:bindSelectedItemIn(com.intellij.ui.dsl.builder.Cell,kotlinx.coroutines.CoroutineScope,kotlinx.coroutines.flow.MutableStateFlow):com.intellij.ui.dsl.builder.Cell
 - sf:bindSelectedItemIn(javax.swing.ComboBoxModel,kotlinx.coroutines.CoroutineScope,kotlinx.coroutines.flow.MutableStateFlow):V
 - sf:bindText(javax.swing.JLabel,java.lang.String,kotlinx.coroutines.flow.Flow):V

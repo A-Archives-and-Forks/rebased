@@ -455,31 +455,31 @@ http_file(
 )
 
 http_file(
-  name = "com_jetbrains_fus_reporting-ap-validation-all-1_0_205_http",
-  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/com/jetbrains/fus/reporting/ap-validation-all/1.0.205/ap-validation-all-1.0.205.jar",
-  sha256 = "9921601d14966cf0f9231fd2b92ba9a5b65b02c92a3a9ebc2049c8b2710a2eea",
-  downloaded_file_path = "ap-validation-all-1.0.205.jar"
+  name = "com_jetbrains_fus_reporting-ap-validation-all-1_0_226_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/com/jetbrains/fus/reporting/ap-validation-all/1.0.226/ap-validation-all-1.0.226.jar",
+  sha256 = "ab4e876b971e66217e311205823a626d10fc751999998ea67fe637277151a224",
+  downloaded_file_path = "ap-validation-all-1.0.226.jar"
 )
 
 http_file(
-  name = "com_jetbrains_fus_reporting-ap-validation-all-1_0_205-sources_http",
-  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/com/jetbrains/fus/reporting/ap-validation-all/1.0.205/ap-validation-all-1.0.205-sources.jar",
-  sha256 = "57629ade1163f0c382a38eae0b127eb83e1f8aae36b6ca98242bcb2453f0e7b7",
-  downloaded_file_path = "ap-validation-all-1.0.205-sources.jar"
+  name = "com_jetbrains_fus_reporting-ap-validation-all-1_0_226-sources_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/com/jetbrains/fus/reporting/ap-validation-all/1.0.226/ap-validation-all-1.0.226-sources.jar",
+  sha256 = "c6deada2fac53b8ea6523dbda77597b128006674616f140f04df23264c6d1aa3",
+  downloaded_file_path = "ap-validation-all-1.0.226-sources.jar"
 )
 
 http_file(
-  name = "com_jetbrains_fus_reporting-api-1_0_205_http",
-  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/com/jetbrains/fus/reporting/api/1.0.205/api-1.0.205.jar",
-  sha256 = "bd122fb2110ec009cf3143aef5e2d473611b5e015c0d2701686eb94200e538ca",
-  downloaded_file_path = "api-1.0.205.jar"
+  name = "com_jetbrains_fus_reporting-fus-api-1_0_226_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/com/jetbrains/fus/reporting/fus-api/1.0.226/fus-api-1.0.226.jar",
+  sha256 = "a0928c000cbffdb10f73966a4e3ee2ca884aede38c9ac908212554b067898a8b",
+  downloaded_file_path = "fus-api-1.0.226.jar"
 )
 
 http_file(
-  name = "com_jetbrains_fus_reporting-api-1_0_205-sources_http",
-  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/com/jetbrains/fus/reporting/api/1.0.205/api-1.0.205-sources.jar",
-  sha256 = "5ce874a15878312c16eeafc73ff14e28e1fc0b72961eb6156cb8c46c04f66aac",
-  downloaded_file_path = "api-1.0.205-sources.jar"
+  name = "com_jetbrains_fus_reporting-fus-api-1_0_226-sources_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/com/jetbrains/fus/reporting/fus-api/1.0.226/fus-api-1.0.226-sources.jar",
+  sha256 = "26bfa6c94159b402cb0373100e6531c50f1604f9fe802486bbe34412f175c023",
+  downloaded_file_path = "fus-api-1.0.226-sources.jar"
 )
 
 http_file(
@@ -1393,17 +1393,17 @@ http_file(
 )
 
 http_file(
-  name = "jetbrains_fleet-expects-compiler-plugin-2_3_10-RC-0_1_http",
-  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/jetbrains/fleet/expects-compiler-plugin/2.3.10-RC-0.1/expects-compiler-plugin-2.3.10-RC-0.1.jar",
-  sha256 = "1602dc0487dab1789b2f7f34a2385bfe5958524f0d08aec6eb5b1137341c2c6f",
-  downloaded_file_path = "expects-compiler-plugin-2.3.10-RC-0.1.jar"
+  name = "jetbrains_fleet-expects-compiler-plugin-2_3_20-RC2-0_1_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/jetbrains/fleet/expects-compiler-plugin/2.3.20-RC2-0.1/expects-compiler-plugin-2.3.20-RC2-0.1.jar",
+  sha256 = "86b37efe5f53e56baff89bbadea6ce8f0983b79a0276a4e8e5d0c14feba0cc72",
+  downloaded_file_path = "expects-compiler-plugin-2.3.20-RC2-0.1.jar"
 )
 
 http_file(
-  name = "jetbrains_fleet-expects-compiler-plugin-2_3_10-RC-0_1-sources_http",
-  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/jetbrains/fleet/expects-compiler-plugin/2.3.10-RC-0.1/expects-compiler-plugin-2.3.10-RC-0.1-sources.jar",
-  sha256 = "3d8f99ae6f3ad26b27dbc909da89564b8fb99b1dcba18d7e4f4e8623b39ecf78",
-  downloaded_file_path = "expects-compiler-plugin-2.3.10-RC-0.1-sources.jar"
+  name = "jetbrains_fleet-expects-compiler-plugin-2_3_20-RC2-0_1-sources_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/jetbrains/fleet/expects-compiler-plugin/2.3.20-RC2-0.1/expects-compiler-plugin-2.3.20-RC2-0.1-sources.jar",
+  sha256 = "27bf0c077dafa5a1502e19c26d7806d6be8f133ebebdce2f8bca25f606ae84fa",
+  downloaded_file_path = "expects-compiler-plugin-2.3.20-RC2-0.1-sources.jar"
 )
 
 http_file(
@@ -2422,17 +2422,17 @@ http_file(
 )
 
 http_file(
-  name = "com_google_protobuf-protobuf-java-util-3_24_4-jb_2_http",
-  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/com/google/protobuf/protobuf-java-util/3.24.4-jb.2/protobuf-java-util-3.24.4-jb.2.jar",
-  sha256 = "bd30f6cf55c4f9f0891f8b6ea6601c1502b643543d2535c8b477ea0481809e99",
-  downloaded_file_path = "protobuf-java-util-3.24.4-jb.2.jar"
+  name = "com_google_protobuf-protobuf-java-util-3_25_5_http",
+  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/com/google/protobuf/protobuf-java-util/3.25.5/protobuf-java-util-3.25.5.jar",
+  sha256 = "dacc58b2c3d2fa8d4bddc1acb881e78d6cf7c137dd78bc1d67f6aca732436a8d",
+  downloaded_file_path = "protobuf-java-util-3.25.5.jar"
 )
 
 http_file(
-  name = "com_google_protobuf-protobuf-java-util-3_24_4-jb_2-sources_http",
-  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/com/google/protobuf/protobuf-java-util/3.24.4-jb.2/protobuf-java-util-3.24.4-jb.2-sources.jar",
-  sha256 = "34b69bf5453b40989ae8d149447ff82e56fb34a82f213a4cef92578764a8f56f",
-  downloaded_file_path = "protobuf-java-util-3.24.4-jb.2-sources.jar"
+  name = "com_google_protobuf-protobuf-java-util-3_25_5-sources_http",
+  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/com/google/protobuf/protobuf-java-util/3.25.5/protobuf-java-util-3.25.5-sources.jar",
+  sha256 = "db5bda981edcda1fd4d60bf4cc7dca9ab144f6b880233fd4d1582fd0065f232c",
+  downloaded_file_path = "protobuf-java-util-3.25.5-sources.jar"
 )
 
 http_file(
@@ -6069,17 +6069,17 @@ http_file(
 )
 
 http_file(
-  name = "org_jetbrains_kotlin-kotlin-compose-compiler-plugin-2_3_10-RC_http",
-  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-compose-compiler-plugin/2.3.10-RC/kotlin-compose-compiler-plugin-2.3.10-RC.jar",
-  sha256 = "37c0718fecfbe90658d22c9a235d7ad0fca91a5e241adf30f128db39bc2b6423",
-  downloaded_file_path = "kotlin-compose-compiler-plugin-2.3.10-RC.jar"
+  name = "org_jetbrains_kotlin-kotlin-compose-compiler-plugin-2_3_20-RC2_http",
+  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-compose-compiler-plugin/2.3.20-RC2/kotlin-compose-compiler-plugin-2.3.20-RC2.jar",
+  sha256 = "e6c343ca8b8c937fa8f6853a795ea08d45beceab450974460eeb1fde9743d0ff",
+  downloaded_file_path = "kotlin-compose-compiler-plugin-2.3.20-RC2.jar"
 )
 
 http_file(
-  name = "org_jetbrains_kotlin-kotlin-compose-compiler-plugin-2_3_10-RC-sources_http",
-  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-compose-compiler-plugin/2.3.10-RC/kotlin-compose-compiler-plugin-2.3.10-RC-sources.jar",
-  sha256 = "ab0ac3cd5742081f8ed1fc709e9961033ffdcc0d793a391b6100f2b407fea582",
-  downloaded_file_path = "kotlin-compose-compiler-plugin-2.3.10-RC-sources.jar"
+  name = "org_jetbrains_kotlin-kotlin-compose-compiler-plugin-2_3_20-RC2-sources_http",
+  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-compose-compiler-plugin/2.3.20-RC2/kotlin-compose-compiler-plugin-2.3.20-RC2-sources.jar",
+  sha256 = "d961f32a5ae9740149dca1ef6a99a4c5a923f53dff35bd663c1dc1d3561069a5",
+  downloaded_file_path = "kotlin-compose-compiler-plugin-2.3.20-RC2-sources.jar"
 )
 
 http_file(
@@ -6993,17 +6993,17 @@ http_file(
 )
 
 http_file(
-  name = "org_jetbrains_kotlin-kotlin-metadata-jvm-2_3_10-RC_http",
-  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-metadata-jvm/2.3.10-RC/kotlin-metadata-jvm-2.3.10-RC.jar",
-  sha256 = "0d8da16be3a5d7f13ae9f7a5e85bbcdfdec6e0525bd06b1d15137d6a0a377cd3",
-  downloaded_file_path = "kotlin-metadata-jvm-2.3.10-RC.jar"
+  name = "org_jetbrains_kotlin-kotlin-metadata-jvm-2_3_20-RC2_http",
+  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-metadata-jvm/2.3.20-RC2/kotlin-metadata-jvm-2.3.20-RC2.jar",
+  sha256 = "7e2f5558958092a4f9b6ea900b5b81d2110123754c9730e2374cb2e03cb199f2",
+  downloaded_file_path = "kotlin-metadata-jvm-2.3.20-RC2.jar"
 )
 
 http_file(
-  name = "org_jetbrains_kotlin-kotlin-metadata-jvm-2_3_10-RC-sources_http",
-  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-metadata-jvm/2.3.10-RC/kotlin-metadata-jvm-2.3.10-RC-sources.jar",
-  sha256 = "5a7ea154e23cb2b53c45178b799236a30d12c16499a17856ce58b49a724008fb",
-  downloaded_file_path = "kotlin-metadata-jvm-2.3.10-RC-sources.jar"
+  name = "org_jetbrains_kotlin-kotlin-metadata-jvm-2_3_20-RC2-sources_http",
+  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-metadata-jvm/2.3.20-RC2/kotlin-metadata-jvm-2.3.20-RC2-sources.jar",
+  sha256 = "63bf4de03fec4635a9121363fbea5297b8b90ce9e2a846ce84095bf4993ed286",
+  downloaded_file_path = "kotlin-metadata-jvm-2.3.20-RC2-sources.jar"
 )
 
 http_file(
@@ -7021,59 +7021,59 @@ http_file(
 )
 
 http_file(
-  name = "org_jetbrains_kotlin-kotlin-reflect-2_3_10-RC_http",
-  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-reflect/2.3.10-RC/kotlin-reflect-2.3.10-RC.jar",
-  sha256 = "515e83a7dbf296f8f056210e4f395f02ff307f8d2fd0de14eeda1a5ba91d9116",
-  downloaded_file_path = "kotlin-reflect-2.3.10-RC.jar"
+  name = "org_jetbrains_kotlin-kotlin-reflect-2_3_20-RC2_http",
+  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-reflect/2.3.20-RC2/kotlin-reflect-2.3.20-RC2.jar",
+  sha256 = "0bb2e05067985a17c56906a9e30a4a7d8e0fad015ce9bf21a066a3cf0d24763d",
+  downloaded_file_path = "kotlin-reflect-2.3.20-RC2.jar"
 )
 
 http_file(
-  name = "org_jetbrains_kotlin-kotlin-reflect-2_3_10-RC-sources_http",
-  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-reflect/2.3.10-RC/kotlin-reflect-2.3.10-RC-sources.jar",
-  sha256 = "fa1664e3d51e4a27d7a2f440581e3f5ffce01795790c11b145a9965f5101cbfa",
-  downloaded_file_path = "kotlin-reflect-2.3.10-RC-sources.jar"
+  name = "org_jetbrains_kotlin-kotlin-reflect-2_3_20-RC2-sources_http",
+  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-reflect/2.3.20-RC2/kotlin-reflect-2.3.20-RC2-sources.jar",
+  sha256 = "8cbdca65092aa6888901e23c08c7d69d141544107a9bcc9aa47b5453d4dbcf7e",
+  downloaded_file_path = "kotlin-reflect-2.3.20-RC2-sources.jar"
 )
 
 http_file(
-  name = "org_jetbrains_kotlin-kotlin-script-runtime-2_3_10-RC_http",
-  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-script-runtime/2.3.10-RC/kotlin-script-runtime-2.3.10-RC.jar",
-  sha256 = "bda6eeb44622e2b95f964c5bdcc90fa163cd0a0c9bb5569ba5df3a311c26f220",
-  downloaded_file_path = "kotlin-script-runtime-2.3.10-RC.jar"
+  name = "org_jetbrains_kotlin-kotlin-script-runtime-2_3_20-RC2_http",
+  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-script-runtime/2.3.20-RC2/kotlin-script-runtime-2.3.20-RC2.jar",
+  sha256 = "4f9d7484608c0c335e6605fb35c37b91989476290df8ee60d0e7487ba9aa0568",
+  downloaded_file_path = "kotlin-script-runtime-2.3.20-RC2.jar"
 )
 
 http_file(
-  name = "org_jetbrains_kotlin-kotlin-script-runtime-2_3_10-RC-sources_http",
-  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-script-runtime/2.3.10-RC/kotlin-script-runtime-2.3.10-RC-sources.jar",
-  sha256 = "d9d6b416bf1267d5d9a2fffb309c8d02fa707608154d7b0d7dd318d2dd7daa96",
-  downloaded_file_path = "kotlin-script-runtime-2.3.10-RC-sources.jar"
+  name = "org_jetbrains_kotlin-kotlin-script-runtime-2_3_20-RC2-sources_http",
+  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-script-runtime/2.3.20-RC2/kotlin-script-runtime-2.3.20-RC2-sources.jar",
+  sha256 = "275d90c0c92e9680aff9c013394f3f395bc46dc23762107c4fdccd9887a58561",
+  downloaded_file_path = "kotlin-script-runtime-2.3.20-RC2-sources.jar"
 )
 
 http_file(
-  name = "org_jetbrains_kotlin-kotlin-stdlib-2_3_10-RC_http",
-  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.3.10-RC/kotlin-stdlib-2.3.10-RC.jar",
-  sha256 = "e14b3dafea88b53ed19e6189aeb93b47a0f2f7ea0cfc2d584f15c9226eb8e0df",
-  downloaded_file_path = "kotlin-stdlib-2.3.10-RC.jar"
+  name = "org_jetbrains_kotlin-kotlin-stdlib-2_3_20-RC2_http",
+  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.3.20-RC2/kotlin-stdlib-2.3.20-RC2.jar",
+  sha256 = "0bc4285a139507a1a41b2d52584b7813c074159089f23b6eead21d192b7bcad7",
+  downloaded_file_path = "kotlin-stdlib-2.3.20-RC2.jar"
 )
 
 http_file(
-  name = "org_jetbrains_kotlin-kotlin-stdlib-2_3_10-RC-sources_http",
-  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.3.10-RC/kotlin-stdlib-2.3.10-RC-sources.jar",
-  sha256 = "21a3acec677a5483cacd6e956bee49f1f816c0e9ece3b39d188b6fd3720fd306",
-  downloaded_file_path = "kotlin-stdlib-2.3.10-RC-sources.jar"
+  name = "org_jetbrains_kotlin-kotlin-stdlib-2_3_20-RC2-sources_http",
+  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.3.20-RC2/kotlin-stdlib-2.3.20-RC2-sources.jar",
+  sha256 = "5c9707bb04725260c2c03d88a218dd4ea87749aefcc4663e71afa9559430f661",
+  downloaded_file_path = "kotlin-stdlib-2.3.20-RC2-sources.jar"
 )
 
 http_file(
-  name = "org_jetbrains_kotlin-kotlin-test-2_3_10-RC_http",
-  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-test/2.3.10-RC/kotlin-test-2.3.10-RC.jar",
-  sha256 = "1f45eb5d2feb788ca14ef857171c3848144f3a90778fb26f297a07834537e1fb",
-  downloaded_file_path = "kotlin-test-2.3.10-RC.jar"
+  name = "org_jetbrains_kotlin-kotlin-test-2_3_20-RC2_http",
+  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-test/2.3.20-RC2/kotlin-test-2.3.20-RC2.jar",
+  sha256 = "824d51362c78ef519eb86b3d147a1eeb17942cb2730af01b3ba1617b936594b0",
+  downloaded_file_path = "kotlin-test-2.3.20-RC2.jar"
 )
 
 http_file(
-  name = "org_jetbrains_kotlin-kotlin-test-2_3_10-RC-sources_http",
-  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-test/2.3.10-RC/kotlin-test-2.3.10-RC-sources.jar",
-  sha256 = "031bd9d2f7cc9caaf369448c60eaa61f68788bd9777ae0c1141ec9b7fe5a83b4",
-  downloaded_file_path = "kotlin-test-2.3.10-RC-sources.jar"
+  name = "org_jetbrains_kotlin-kotlin-test-2_3_20-RC2-sources_http",
+  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-test/2.3.20-RC2/kotlin-test-2.3.20-RC2-sources.jar",
+  sha256 = "bce4ebcf90507cc14ea3857f65088d10fd1a305616da62a6e5b6be0735ccb456",
+  downloaded_file_path = "kotlin-test-2.3.20-RC2-sources.jar"
 )
 
 http_file(
@@ -7133,17 +7133,17 @@ http_file(
 )
 
 http_file(
-  name = "org_jetbrains_kotlin-kotlin-test-junit-2_3_10-RC_http",
-  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-test-junit/2.3.10-RC/kotlin-test-junit-2.3.10-RC.jar",
-  sha256 = "58c68649148862a530c14aad22f49f8a9a1a46d3c6252970145c06980bfd5fdf",
-  downloaded_file_path = "kotlin-test-junit-2.3.10-RC.jar"
+  name = "org_jetbrains_kotlin-kotlin-test-junit-2_3_20-RC2_http",
+  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-test-junit/2.3.20-RC2/kotlin-test-junit-2.3.20-RC2.jar",
+  sha256 = "d0d92741c0dd62742e4600d4be47755cbab57af426da43233b62982022d9e409",
+  downloaded_file_path = "kotlin-test-junit-2.3.20-RC2.jar"
 )
 
 http_file(
-  name = "org_jetbrains_kotlin-kotlin-test-junit-2_3_10-RC-sources_http",
-  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-test-junit/2.3.10-RC/kotlin-test-junit-2.3.10-RC-sources.jar",
+  name = "org_jetbrains_kotlin-kotlin-test-junit-2_3_20-RC2-sources_http",
+  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-test-junit/2.3.20-RC2/kotlin-test-junit-2.3.20-RC2-sources.jar",
   sha256 = "3fd39bbf3f8283cf7b7759e02abdd752ddde9964352f645467b779257bccef20",
-  downloaded_file_path = "kotlin-test-junit-2.3.10-RC-sources.jar"
+  downloaded_file_path = "kotlin-test-junit-2.3.20-RC2-sources.jar"
 )
 
 http_file(
@@ -8110,6 +8110,223 @@ http_file(
   url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/dk/brics/automaton/1.12-4/automaton-1.12-4-sources.jar",
   sha256 = "11337f78fdb061d7209d346b30e0da16c6b5e8806a5fc9a3481d13cf834cfd23",
   downloaded_file_path = "automaton-1.12-4-sources.jar"
+)
+
+http_file(
+  name = "org_jetbrains_intellij_deps_batik-batik-transcoder-1_16_0-35_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/batik/batik-transcoder/1.16.0-35/batik-transcoder-1.16.0-35.jar",
+  sha256 = "72d9d8d4bb8b7cef3522db4811aae30d87d39442419c7747920bd07ddb6f807c",
+  downloaded_file_path = "batik-transcoder-1.16.0-35.jar"
+)
+
+http_file(
+  name = "org_jetbrains_intellij_deps_batik-batik-awt-util-1_16_0-35_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/batik/batik-awt-util/1.16.0-35/batik-awt-util-1.16.0-35.jar",
+  sha256 = "943e4ec9912c2799ba4cc710783b41ddda7be20c6280c75204108385c684cac1",
+  downloaded_file_path = "batik-awt-util-1.16.0-35.jar"
+)
+
+http_file(
+  name = "org_apache_xmlgraphics-xmlgraphics-commons-2_8_http",
+  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/apache/xmlgraphics/xmlgraphics-commons/2.8/xmlgraphics-commons-2.8.jar",
+  sha256 = "abe7c5a9d196a64c398c678e234c8ae7b59b6539a9fd7d31e4a41055d68defbd",
+  downloaded_file_path = "xmlgraphics-commons-2.8.jar"
+)
+
+http_file(
+  name = "org_jetbrains_intellij_deps_batik-batik-bridge-1_16_0-35_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/batik/batik-bridge/1.16.0-35/batik-bridge-1.16.0-35.jar",
+  sha256 = "ddcf155b6eed0c2157761b07170c1656ce30607808a659ab83e7ea7455c1b9fe",
+  downloaded_file_path = "batik-bridge-1.16.0-35.jar"
+)
+
+http_file(
+  name = "org_jetbrains_intellij_deps_batik-batik-anim-1_16_0-35_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/batik/batik-anim/1.16.0-35/batik-anim-1.16.0-35.jar",
+  sha256 = "bea5166ae9d887e385ac439495dd452ceb06dcada8dd3a2a88ac693242bcddd0",
+  downloaded_file_path = "batik-anim-1.16.0-35.jar"
+)
+
+http_file(
+  name = "org_jetbrains_intellij_deps_batik-batik-parser-1_16_0-35_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/batik/batik-parser/1.16.0-35/batik-parser-1.16.0-35.jar",
+  sha256 = "d57a4af13b351fb4916fe19c00942b9ac41102f52e883441944e311be2a08186",
+  downloaded_file_path = "batik-parser-1.16.0-35.jar"
+)
+
+http_file(
+  name = "org_jetbrains_intellij_deps_batik-batik-svg-dom-1_16_0-35_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/batik/batik-svg-dom/1.16.0-35/batik-svg-dom-1.16.0-35.jar",
+  sha256 = "f436c50c43a21aa9e84c2882d149871d0f146d648de5a2de175170030ae3a168",
+  downloaded_file_path = "batik-svg-dom-1.16.0-35.jar"
+)
+
+http_file(
+  name = "org_jetbrains_intellij_deps_batik-batik-dom-1_16_0-35_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/batik/batik-dom/1.16.0-35/batik-dom-1.16.0-35.jar",
+  sha256 = "9bd7b4e71a598e0001d411baefecf599f8d9423ba50a80555ef7abcd5319ee79",
+  downloaded_file_path = "batik-dom-1.16.0-35.jar"
+)
+
+http_file(
+  name = "org_jetbrains_intellij_deps_batik-batik-css-1_16_0-35_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/batik/batik-css/1.16.0-35/batik-css-1.16.0-35.jar",
+  sha256 = "3daa833eead75cf3452ea749a471dcac9d5d556c43de0fd609dd7cf758677f0d",
+  downloaded_file_path = "batik-css-1.16.0-35.jar"
+)
+
+http_file(
+  name = "org_jetbrains_intellij_deps_batik-batik-ext-1_16_0-35_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/batik/batik-ext/1.16.0-35/batik-ext-1.16.0-35.jar",
+  sha256 = "c798b742fd0e0760a1137bb6f95ae8ebd3059de5c72ddb35f7f577e915f7c579",
+  downloaded_file_path = "batik-ext-1.16.0-35.jar"
+)
+
+http_file(
+  name = "org_jetbrains_intellij_deps_batik-batik-gvt-1_16_0-35_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/batik/batik-gvt/1.16.0-35/batik-gvt-1.16.0-35.jar",
+  sha256 = "50e8508e1453e552c6f9d70d11956be3dd39cfefb561ddbf621ab94896a2f8bb",
+  downloaded_file_path = "batik-gvt-1.16.0-35.jar"
+)
+
+http_file(
+  name = "org_jetbrains_intellij_deps_batik-batik-svggen-1_16_0-35_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/batik/batik-svggen/1.16.0-35/batik-svggen-1.16.0-35.jar",
+  sha256 = "f5dc9308dff817151e0ff2881b3132c62309bafa401ce5dbe6703c52ed999eef",
+  downloaded_file_path = "batik-svggen-1.16.0-35.jar"
+)
+
+http_file(
+  name = "org_jetbrains_intellij_deps_batik-batik-util-1_16_0-35_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/batik/batik-util/1.16.0-35/batik-util-1.16.0-35.jar",
+  sha256 = "c51733a4c6bf4c071141b798487e2293bd79981ace013ad7d123441b7fb34d14",
+  downloaded_file_path = "batik-util-1.16.0-35.jar"
+)
+
+http_file(
+  name = "org_jetbrains_intellij_deps_batik-batik-constants-1_16_0-35_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/batik/batik-constants/1.16.0-35/batik-constants-1.16.0-35.jar",
+  sha256 = "76711fea4a9f5e7cb2b52957632c0a78664d805a008f4ac81886bd5c9400afea",
+  downloaded_file_path = "batik-constants-1.16.0-35.jar"
+)
+
+http_file(
+  name = "org_jetbrains_intellij_deps_batik-batik-xml-1_16_0-35_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/batik/batik-xml/1.16.0-35/batik-xml-1.16.0-35.jar",
+  sha256 = "9a0f5d35033edf4a6326153536f7cc700a6ff3579abd94adb2eaaafdac8ee64a",
+  downloaded_file_path = "batik-xml-1.16.0-35.jar"
+)
+
+http_file(
+  name = "org_jetbrains_intellij_deps_batik-batik-transcoder-1_16_0-35-sources_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/batik/batik-transcoder/1.16.0-35/batik-transcoder-1.16.0-35-sources.jar",
+  sha256 = "64e1b18ce6483443711d9c947ca7c947ed65661700d3a4980ad4c564e462c901",
+  downloaded_file_path = "batik-transcoder-1.16.0-35-sources.jar"
+)
+
+http_file(
+  name = "org_jetbrains_intellij_deps_batik-batik-awt-util-1_16_0-35-sources_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/batik/batik-awt-util/1.16.0-35/batik-awt-util-1.16.0-35-sources.jar",
+  sha256 = "e8837cb92a69379b816f0dcd3c3908e826358ef0e11d37e590de610d615fa59c",
+  downloaded_file_path = "batik-awt-util-1.16.0-35-sources.jar"
+)
+
+http_file(
+  name = "org_apache_xmlgraphics-xmlgraphics-commons-2_8-sources_http",
+  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/org/apache/xmlgraphics/xmlgraphics-commons/2.8/xmlgraphics-commons-2.8-sources.jar",
+  sha256 = "c359c6c709f6b79f6bbe72b2863cd1ce642a583facb8bd4965b79013473f4d1d",
+  downloaded_file_path = "xmlgraphics-commons-2.8-sources.jar"
+)
+
+http_file(
+  name = "org_jetbrains_intellij_deps_batik-batik-bridge-1_16_0-35-sources_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/batik/batik-bridge/1.16.0-35/batik-bridge-1.16.0-35-sources.jar",
+  sha256 = "8476fbfaac21b0099878f5251b844ffe936f6ef035954c630aeb6b89f88f45a1",
+  downloaded_file_path = "batik-bridge-1.16.0-35-sources.jar"
+)
+
+http_file(
+  name = "org_jetbrains_intellij_deps_batik-batik-anim-1_16_0-35-sources_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/batik/batik-anim/1.16.0-35/batik-anim-1.16.0-35-sources.jar",
+  sha256 = "3d2a111b4e1299bc73944660523266f73d83caa0a6cb037256834e1c812c4ad8",
+  downloaded_file_path = "batik-anim-1.16.0-35-sources.jar"
+)
+
+http_file(
+  name = "org_jetbrains_intellij_deps_batik-batik-parser-1_16_0-35-sources_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/batik/batik-parser/1.16.0-35/batik-parser-1.16.0-35-sources.jar",
+  sha256 = "8fddb3a9659ba3a8616c6584d65473dfe2abb31a86ecaf555a7cbfb22cecf3c5",
+  downloaded_file_path = "batik-parser-1.16.0-35-sources.jar"
+)
+
+http_file(
+  name = "org_jetbrains_intellij_deps_batik-batik-svg-dom-1_16_0-35-sources_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/batik/batik-svg-dom/1.16.0-35/batik-svg-dom-1.16.0-35-sources.jar",
+  sha256 = "10b9d72c5ec4f56c2aa59a4e71c91037ae9aa80d123bd26b6540a26aa3e74ce4",
+  downloaded_file_path = "batik-svg-dom-1.16.0-35-sources.jar"
+)
+
+http_file(
+  name = "org_jetbrains_intellij_deps_batik-batik-dom-1_16_0-35-sources_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/batik/batik-dom/1.16.0-35/batik-dom-1.16.0-35-sources.jar",
+  sha256 = "d6e313489f50403daf8074c6d6c4d842a896e74bd101ee1a80ea7a615457289e",
+  downloaded_file_path = "batik-dom-1.16.0-35-sources.jar"
+)
+
+http_file(
+  name = "org_jetbrains_intellij_deps_batik-batik-css-1_16_0-35-sources_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/batik/batik-css/1.16.0-35/batik-css-1.16.0-35-sources.jar",
+  sha256 = "0b2749c9bd4e347e668497b9a9b819b3326dba8c5bffffb0b8eb23068d1acc15",
+  downloaded_file_path = "batik-css-1.16.0-35-sources.jar"
+)
+
+http_file(
+  name = "org_jetbrains_intellij_deps_batik-batik-ext-1_16_0-35-sources_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/batik/batik-ext/1.16.0-35/batik-ext-1.16.0-35-sources.jar",
+  sha256 = "215ae40c7b36bd8d1b4bc5a70ea6111d414eaf0c0fc2f87300a1d28d3edf0f51",
+  downloaded_file_path = "batik-ext-1.16.0-35-sources.jar"
+)
+
+http_file(
+  name = "org_jetbrains_intellij_deps_batik-batik-gvt-1_16_0-35-sources_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/batik/batik-gvt/1.16.0-35/batik-gvt-1.16.0-35-sources.jar",
+  sha256 = "3e109f59457708ff508df71c06d7e4a5347d0ca16001934a3e78377d05f199dd",
+  downloaded_file_path = "batik-gvt-1.16.0-35-sources.jar"
+)
+
+http_file(
+  name = "org_jetbrains_intellij_deps_batik-batik-svggen-1_16_0-35-sources_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/batik/batik-svggen/1.16.0-35/batik-svggen-1.16.0-35-sources.jar",
+  sha256 = "50950c2fa03d198f8f33a9478f7ef5ca03d0198ef66165f5ac4611525ab3d0e3",
+  downloaded_file_path = "batik-svggen-1.16.0-35-sources.jar"
+)
+
+http_file(
+  name = "org_jetbrains_intellij_deps_batik-batik-util-1_16_0-35-sources_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/batik/batik-util/1.16.0-35/batik-util-1.16.0-35-sources.jar",
+  sha256 = "b6f49af111902f0c307f4344be04d5c895c3e018ef18a7c6cde0ac3670f50192",
+  downloaded_file_path = "batik-util-1.16.0-35-sources.jar"
+)
+
+http_file(
+  name = "org_jetbrains_intellij_deps_batik-batik-constants-1_16_0-35-sources_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/batik/batik-constants/1.16.0-35/batik-constants-1.16.0-35-sources.jar",
+  sha256 = "fd088941787863cd3498ac7359b05e11d374657b8c35218d87ec657ac558ac42",
+  downloaded_file_path = "batik-constants-1.16.0-35-sources.jar"
+)
+
+http_file(
+  name = "org_jetbrains_intellij_deps_batik-batik-xml-1_16_0-35-sources_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/batik/batik-xml/1.16.0-35/batik-xml-1.16.0-35-sources.jar",
+  sha256 = "5b2c31669ddce36c910c221cdc3d031b0a2e2007ebe00e2f2583270122729e70",
+  downloaded_file_path = "batik-xml-1.16.0-35-sources.jar"
+)
+
+http_file(
+  name = "xml-apis-xml-apis-ext-1_3_04_http",
+  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/xml-apis/xml-apis-ext/1.3.04/xml-apis-ext-1.3.04.jar",
+  sha256 = "d0b4887dc34d57de49074a58affad439a013d0baffa1a8034f8ef2a5ea191646",
+  downloaded_file_path = "xml-apis-ext-1.3.04.jar"
 )
 
 http_file(
@@ -13342,17 +13559,17 @@ http_file(
 )
 
 http_file(
-  name = "jetbrains_fleet-noria-compiler-plugin-2_3_10-RC-0_1_http",
-  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/jetbrains/fleet/noria-compiler-plugin/2.3.10-RC-0.1/noria-compiler-plugin-2.3.10-RC-0.1.jar",
-  sha256 = "29ed8ea0ce82465e086355f95e615e1df617572e53ff831edda5f9f8e152e3dd",
-  downloaded_file_path = "noria-compiler-plugin-2.3.10-RC-0.1.jar"
+  name = "jetbrains_fleet-noria-compiler-plugin-2_3_20-RC2-0_1_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/jetbrains/fleet/noria-compiler-plugin/2.3.20-RC2-0.1/noria-compiler-plugin-2.3.20-RC2-0.1.jar",
+  sha256 = "026bbc1a1af9ce9feb75f8008bd0e88e1c886b7287f931202a726bd50b34374d",
+  downloaded_file_path = "noria-compiler-plugin-2.3.20-RC2-0.1.jar"
 )
 
 http_file(
-  name = "jetbrains_fleet-noria-compiler-plugin-2_3_10-RC-0_1-sources_http",
-  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/jetbrains/fleet/noria-compiler-plugin/2.3.10-RC-0.1/noria-compiler-plugin-2.3.10-RC-0.1-sources.jar",
-  sha256 = "a35f979340925250c3d5a35b38ca708c8841a94d9e1f8d98061619f09fe9f4fc",
-  downloaded_file_path = "noria-compiler-plugin-2.3.10-RC-0.1-sources.jar"
+  name = "jetbrains_fleet-noria-compiler-plugin-2_3_20-RC2-0_1-sources_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/jetbrains/fleet/noria-compiler-plugin/2.3.20-RC2-0.1/noria-compiler-plugin-2.3.20-RC2-0.1-sources.jar",
+  sha256 = "b4e7aa4464a8911a308c6e7570cf7c40673ad84795d9733ab7b6933d7032d6ef",
+  downloaded_file_path = "noria-compiler-plugin-2.3.20-RC2-0.1-sources.jar"
 )
 
 http_file(
@@ -15078,17 +15295,17 @@ http_file(
 )
 
 http_file(
-  name = "com_google_protobuf-protobuf-java-3_24_4-jb_2_http",
-  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/com/google/protobuf/protobuf-java/3.24.4-jb.2/protobuf-java-3.24.4-jb.2.jar",
-  sha256 = "6ba90d0d081c03c5c03d2d41497f75a183da7fb23cc2691f7b782dea77f73d21",
-  downloaded_file_path = "protobuf-java-3.24.4-jb.2.jar"
+  name = "com_google_protobuf-protobuf-java-3_25_5_http",
+  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.25.5/protobuf-java-3.25.5.jar",
+  sha256 = "8540247fad9e06baefa8fb45eb313802d019f485f14300e0f9d6b556ed88e753",
+  downloaded_file_path = "protobuf-java-3.25.5.jar"
 )
 
 http_file(
-  name = "com_google_protobuf-protobuf-java-3_24_4-jb_2-sources_http",
-  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/com/google/protobuf/protobuf-java/3.24.4-jb.2/protobuf-java-3.24.4-jb.2-sources.jar",
-  sha256 = "36406aee18f5c2bed51fe429e6d4ce381b1b1d50bb05da540409ffa318e83156",
-  downloaded_file_path = "protobuf-java-3.24.4-jb.2-sources.jar"
+  name = "com_google_protobuf-protobuf-java-3_25_5-sources_http",
+  url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.25.5/protobuf-java-3.25.5-sources.jar",
+  sha256 = "d686e802329e42954e72e9b3b148b67eeb4f6f3ed327abc4508b79fda4937c3b",
+  downloaded_file_path = "protobuf-java-3.25.5-sources.jar"
 )
 
 http_file(
@@ -15204,31 +15421,31 @@ http_file(
 )
 
 http_file(
-  name = "jetbrains_fleet-rhizomedb-compiler-plugin-2_3_10-RC-0_1_http",
-  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/jetbrains/fleet/rhizomedb-compiler-plugin/2.3.10-RC-0.1/rhizomedb-compiler-plugin-2.3.10-RC-0.1.jar",
-  sha256 = "0fff70f84aebd338c32acb7b2e0dbbb904ce288b96094ef59e7a5384272be4c4",
-  downloaded_file_path = "rhizomedb-compiler-plugin-2.3.10-RC-0.1.jar"
+  name = "jetbrains_fleet-rhizomedb-compiler-plugin-2_3_20-RC2-0_1_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/jetbrains/fleet/rhizomedb-compiler-plugin/2.3.20-RC2-0.1/rhizomedb-compiler-plugin-2.3.20-RC2-0.1.jar",
+  sha256 = "06fc2139c750a7a3019a4844ca3417d6b7cf01a76b85a2244bf4f472f4481680",
+  downloaded_file_path = "rhizomedb-compiler-plugin-2.3.20-RC2-0.1.jar"
 )
 
 http_file(
-  name = "jetbrains_fleet-rhizomedb-compiler-plugin-2_3_10-RC-0_1-sources_http",
-  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/jetbrains/fleet/rhizomedb-compiler-plugin/2.3.10-RC-0.1/rhizomedb-compiler-plugin-2.3.10-RC-0.1-sources.jar",
-  sha256 = "c9d3a51e3b2cbfc504a11d0b594559fe9607b04720852e271f15e8b65dd87105",
-  downloaded_file_path = "rhizomedb-compiler-plugin-2.3.10-RC-0.1-sources.jar"
+  name = "jetbrains_fleet-rhizomedb-compiler-plugin-2_3_20-RC2-0_1-sources_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/jetbrains/fleet/rhizomedb-compiler-plugin/2.3.20-RC2-0.1/rhizomedb-compiler-plugin-2.3.20-RC2-0.1-sources.jar",
+  sha256 = "8f692f697074bbc594e1a798d8254bc8365db3ae4a877e3ee887504898736db3",
+  downloaded_file_path = "rhizomedb-compiler-plugin-2.3.20-RC2-0.1-sources.jar"
 )
 
 http_file(
-  name = "com_jetbrains_fleet-rpc-compiler-plugin-2_3_10-RC-0_1_http",
-  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/com/jetbrains/fleet/rpc-compiler-plugin/2.3.10-RC-0.1/rpc-compiler-plugin-2.3.10-RC-0.1.jar",
-  sha256 = "a8c769ca0895ed9e86e30cdcc63f45d6480327bbd0dc9a28b9e99316db26e6ac",
-  downloaded_file_path = "rpc-compiler-plugin-2.3.10-RC-0.1.jar"
+  name = "com_jetbrains_fleet-rpc-compiler-plugin-2_3_20-RC2-0_1_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/com/jetbrains/fleet/rpc-compiler-plugin/2.3.20-RC2-0.1/rpc-compiler-plugin-2.3.20-RC2-0.1.jar",
+  sha256 = "ef23b79ff380310671bfc1e3a619b33472561075394e40ea600325c64d6d3291",
+  downloaded_file_path = "rpc-compiler-plugin-2.3.20-RC2-0.1.jar"
 )
 
 http_file(
-  name = "com_jetbrains_fleet-rpc-compiler-plugin-2_3_10-RC-0_1-sources_http",
-  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/com/jetbrains/fleet/rpc-compiler-plugin/2.3.10-RC-0.1/rpc-compiler-plugin-2.3.10-RC-0.1-sources.jar",
-  sha256 = "0f3a8be10a6485f1634770a19bef3a57bd44a886fcc6ada3157e0d4f532a864d",
-  downloaded_file_path = "rpc-compiler-plugin-2.3.10-RC-0.1-sources.jar"
+  name = "com_jetbrains_fleet-rpc-compiler-plugin-2_3_20-RC2-0_1-sources_http",
+  url = "https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/ij/intellij-dependencies/com/jetbrains/fleet/rpc-compiler-plugin/2.3.20-RC2-0.1/rpc-compiler-plugin-2.3.20-RC2-0.1-sources.jar",
+  sha256 = "cfb486229b5794212661bf50563ed6e863934745845f1b99d503675effe8fb96",
+  downloaded_file_path = "rpc-compiler-plugin-2.3.20-RC2-0.1-sources.jar"
 )
 
 http_file(

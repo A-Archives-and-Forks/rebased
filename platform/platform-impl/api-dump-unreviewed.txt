@@ -1536,7 +1536,6 @@ f:com.intellij.ide.ProjectGroupActionGroup
 f:com.intellij.ide.ProjectWindowCustomizerService
 - com.intellij.openapi.Disposable
 - sf:Companion:com.intellij.ide.ProjectWindowCustomizerService$Companion
-- <init>():V
 - f:addListener(kotlinx.coroutines.CoroutineScope,Z,kotlin.jvm.functions.Function1):V
 - dispose():V
 - f:enableIfNeeded():V
@@ -4024,15 +4023,6 @@ f:com.intellij.ide.ui.laf.darcula.ui.DarculaMenuBarBorder
 - <init>():V
 - getBorderInsets(java.awt.Component):java.awt.Insets
 - isBorderOpaque():Z
-- paintBorder(java.awt.Component,java.awt.Graphics,I,I,I,I):V
-c:com.intellij.ide.ui.laf.darcula.ui.DarculaMenuItemBorder
-- javax.swing.border.Border
-- javax.swing.plaf.UIResource
-- <init>():V
-- getBorderInsets(java.awt.Component):java.awt.Insets
-- isBorderOpaque():Z
-- s:menuBarItemInnerInsets():com.intellij.util.ui.JBInsets
-- s:menuBarItemOuterInsets():com.intellij.util.ui.JBInsets
 - paintBorder(java.awt.Component,java.awt.Graphics,I,I,I,I):V
 c:com.intellij.ide.ui.laf.darcula.ui.DarculaMenuItemUIBase
 - javax.swing.plaf.basic.BasicMenuItemUI

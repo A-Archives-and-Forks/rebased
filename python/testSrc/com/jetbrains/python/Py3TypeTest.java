@@ -5034,6 +5034,174 @@ public class Py3TypeTest extends PyTestCase {
       """);
   }
 
+  // PY-86873
+  public void testNestedListUnpacking1() {
+    doTest("int", """
+      def f(edges: list[list[int]]):
+                       [[node_a], second_edge] = edges
+                       expr = node_a
+      """);
+  }
+
+  // PY-86873
+  public void testNestedListUnpacking2() {
+    doTest("list[int]", """
+      def f(edges: list[list[int]]):
+                       [[node_a], second_edge] = edges
+                       expr = second_edge
+      """);
+  }
+
+  // PY-86873
+  public void testNestedListUnpacking3() {
+    doTest("int", """
+      def f(edges: list[list[int]]):
+                       [edge, [node_b]] = edges
+                       expr = node_b
+      """);
+  }
+
+  // PY-86873
+  public void testNestedListUnpacking4() {
+    doTest("list[int]", """
+      def f(edges: list[list[int]]):
+                       [edge, [node_b]] = edges
+                       expr = edge
+      """);
+  }
+
+  // PY-86873
+  public void testNestedListUnpacking5() {
+    doTest("int", """
+      def f(edges: list[list[int]]):
+                       [edge, [node_b], edge_2] = edges
+                       expr = node_b
+      """);
+  }
+
+  // PY-86873
+  public void testNestedListUnpacking6() {
+    doTest("tuple[int, int, int]", """
+      def f(edges: list[list[int]]):
+                       [[node_a], [node_b], [node_c]] = edges
+                       expr = (node_a, node_b, node_c)
+      """);
+  }
+
+  // PY-86873
+  public void testNestedListDepth3Unpacking1() {
+    doTest("list[int]", """
+      def f(edges: list[list[list[int]]]):
+                       [edge, [node_a]] = edges
+                       expr = node_a
+      """);
+  }
+
+  // PY-86873
+  public void testNestedListDepth3Unpacking2() {
+    doTest("int", """
+      def f(edges: list[list[list[int]]]):
+                       [edge, [edge_2, [node_a]]] = edges
+                       expr = node_a
+      """);
+  }
+
+  // PY-86873
+  public void testNestedListDepth3Unpacking3() {
+    doTest("list[int]", """
+      def f(edges: list[list[list[int]]]):
+                       [edge, [edge_2, [node_a]]] = edges
+                       expr = edge_2
+      """);
+  }
+
+  // PY-86873
+  public void testNestedListDepth3Unpacking4() {
+    doTest("list[list[int]]", """
+      def f(edges: list[list[list[int]]]):
+                       [edge, [edge_2, [node_a]]] = edges
+                       expr = edge
+      """);
+  }
+
+  // PY-87575
+  public void testIterDefinedInMetaclass() {
+    doTest("set[int]", """
+      from collections.abc import Iterator
+      
+      class MyIterMeta(type):
+          def __iter__(self) -> Iterator[int]: ...
+      
+      class MyClass(metaclass=MyIterMeta): ...
+      
+      expr = set(MyClass)
+      """);
+  }
+
+  // PY-87575
+  public void testIterDefinedInMetaclassHasHigherPriorityThatInheritedClass() {
+    doTest("set[int]", """
+      from collections.abc import Iterator
+      
+      class MyIterMeta(type):
+          def __iter__(self) -> Iterator[int]: ...
+      
+      class IterBase:
+          def __iter__(self) -> Iterator[str]: ...
+      
+      class MyClass(IterBase, metaclass=MyIterMeta): ...
+      
+      expr = set(MyClass)
+      """);
+  }
+
+  // PY-87575
+  public void testIterDefinedInMetaclassHasHigherPriorityThatInheritedBuiltinStr() {
+    doTest("set[int]", """
+      from collections.abc import Iterator
+      
+      class MyIterMeta(type):
+          def __iter__(self) -> Iterator[int]: ...
+      
+      # even though str inherits Iterable[str], MyIterMeta.__iter__ will be called in runtime and has higher priority
+      class MyClass(str, metaclass=MyIterMeta): ...
+      
+      expr = set(MyClass)
+      """);
+  }
+
+  // PY-87344
+  public void testIteratorTypeCorrectlyInferredFromStrEnum() {
+    doTest("set[Variant]", """
+      from enum import StrEnum
+      from typing import Self
+
+      class Variant(StrEnum):
+          CREATED = "created"
+      
+          @classmethod
+          def values(cls) -> set[Self]:
+              return set(cls)
+      
+      expr = set(Variant)
+      """);
+  }
+
+  // PY-87344
+  public void testTypeOfSetOfStrEnumViaCls() {
+    doTest("set[Self@Variant]", """
+      from enum import StrEnum
+      from typing import Self
+      
+      class Variant(StrEnum):
+          CREATED = "created"
+      
+          @classmethod
+          def values(cls):
+              expr = set(cls)
+      """);
+  }
+
   private void doTest(final String expectedType, final String text) {
     myFixture.configureByText(PythonFileType.INSTANCE, text);
     final PyExpression expr = myFixture.findElementByText("expr", PyExpression.class);

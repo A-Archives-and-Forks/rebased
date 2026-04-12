@@ -297,7 +297,9 @@ class XDebugSessionImpl @JvmOverloads constructor(
   }
 
   override fun setPauseActionSupported(isSupported: Boolean) {
+    if (sessionData.isPauseSupported == isSupported) return
     sessionData.isPauseSupported = isSupported
+    myDispatcher.getMulticaster().settingsChanged()
   }
 
   var isReadOnly: Boolean
@@ -508,6 +510,7 @@ class XDebugSessionImpl @JvmOverloads constructor(
    * Use [runWhenTabReady] to avoid races.
    */
   val sessionTab: XDebugSessionTab?
+    @ApiStatus.Obsolete
     get() {
       if (SplitDebuggerMode.showSplitWarnings()) {
         // See "TODO [Debugger.sessionTab]" to see usages which are not yet properly migrated.
@@ -557,13 +560,7 @@ class XDebugSessionImpl @JvmOverloads constructor(
     }
   }
 
-  /**
-   * Calls [block] in EDT when the tab UI is ready.
-   *
-   * See [XDebugSession.getUI] doc for proper migration steps.
-   */
-  @ApiStatus.Obsolete
-  fun runWhenUiReady(block: (RunnerLayoutUi) -> Unit) {
+  override fun runWhenUiReady(block: Consumer<RunnerLayoutUi>) {
     tabCoroutineScope.launch(Dispatchers.EDT) {
       assertSessionTabInitialized()
       val ui = if (SplitDebuggerMode.isSplitDebugger() && AppMode.isRemoteDevHost()) {
@@ -573,7 +570,7 @@ class XDebugSessionImpl @JvmOverloads constructor(
         mySessionTab.await()?.ui
       }
       if (ui != null) {
-        block(ui)
+        block.accept(ui)
       }
     }
   }
