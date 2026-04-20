@@ -1,0 +1,20 @@
+name: 'issue-translator'
+on:
+  issue_comment:
+    types: [created]
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write # to post comments
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: dromara/issues-translate-action@b41f55ddc81d7d54bd542a4f289fe28ec081898e
+        with:
+          BOT_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IS_MODIFY_TITLE: true
+          # we change the note because the default message has broken english in it
+          CUSTOM_BOT_NOTE: Bot detected the issue body's language is not English, so it was translated automatically.
