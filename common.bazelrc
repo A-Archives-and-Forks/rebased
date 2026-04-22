@@ -180,3 +180,5 @@ common --experimental_repository_downloader_retries=5
 
 # Scale HTTP timeouts by 2x
 common --http_timeout_scaling=2.0
+
+build --worker_max_multiplex_instances=JvmCompile=1
