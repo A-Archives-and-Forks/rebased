@@ -36,6 +36,7 @@ import com.jetbrains.python.psi.types.PyCallableTypeImpl
 import com.jetbrains.python.psi.types.PyCollectionTypeImpl
 import com.jetbrains.python.psi.types.PyFunctionTypeImpl
 import com.jetbrains.python.psi.types.PyType
+import com.jetbrains.python.psi.types.PyTypeUtil.derefOrUnknown
 import com.jetbrains.python.psi.types.PyTypeVarType
 import com.jetbrains.python.psi.types.PyTypeVarTypeImpl
 import com.jetbrains.python.psi.types.TypeEvalContext
@@ -132,9 +133,8 @@ class PyFunctionTypeRepresentation(astNode: ASTNode) : PyElementImpl(astNode), P
       when (param) {
         is PySlashParameter -> PyCallableParameterImpl.psi(param)
         is PyNamedParameterTypeRepresentation -> {
-          val paramName = param.parameterName
           val paramType = param.typeExpression?.let { resolveTypeExpression(it, context, typeVarMap) }
-          PyCallableParameterImpl.nonPsi(paramName, paramType, param.defaultValue)
+          PyCallableParameterImpl.psi(param, paramType)
         }
         is PyStarExpression -> {
           // *args parameter
@@ -210,7 +210,7 @@ class PyFunctionTypeRepresentation(astNode: ASTNode) : PyElementImpl(astNode), P
     // Otherwise, resolve normally
     return when (expr) {
       is PyDoubleStarExpression -> PyTypingTypeProvider.getType(expr.expression!!, context)?.get()
-      else -> PyTypingTypeProvider.getType(expr, context)?.get()
+      else -> PyTypingTypeProvider.getType(expr, context).derefOrUnknown()
     }
   }
 }

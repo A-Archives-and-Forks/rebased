@@ -1,4 +1,4 @@
-// Copyright 2000-2025 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
+// Copyright 2000-2026 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package com.intellij.codeInsight.daemon.impl;
 
 import com.intellij.codeInsight.multiverse.CodeInsightContext;
@@ -11,6 +11,7 @@ import com.intellij.injected.editor.DocumentWindow;
 import com.intellij.lang.ASTNode;
 import com.intellij.lang.Language;
 import com.intellij.lang.annotation.Annotator;
+import com.intellij.lang.annotation.ExternalAnnotator;
 import com.intellij.lang.annotation.HighlightSeverity;
 import com.intellij.lang.injection.InjectedLanguageManager;
 import com.intellij.openapi.Disposable;
@@ -485,7 +486,9 @@ public final class HighlightInfoUpdaterImpl extends HighlightInfoUpdater impleme
       if (isAnnotatorToolId(toolId) || isHighlightVisitorToolId(toolId)) {
         return this == ANNOTATOR_OR_VISITOR;
       }
-      if (toolId == InjectedLanguageManagerImpl.INJECTION_BACKGROUND_TOOL_ID || toolId == InjectedLanguageManagerImpl.INJECTION_SYNTAX_TOOL_ID) {
+      if (toolId == InjectedLanguageManagerImpl.INJECTION_BACKGROUND_TOOL_ID
+          || toolId == InjectedLanguageManagerImpl.INJECTION_SYNTAX_TOOL_ID
+          || toolId instanceof Class<?> c && ExternalAnnotator.class.isAssignableFrom(c)) {
         return false;
       }
       assert false : "unknown tool id type: "+toolId +"("+toolId.getClass()+")";
@@ -1516,11 +1519,13 @@ public final class HighlightInfoUpdaterImpl extends HighlightInfoUpdater impleme
     if (toReuse != null && toReuse.isValid()) {
       highlighter = toReuse;
       BackgroundUpdateHighlightersUtil.associateInfoAndHighlighter(info, highlighter);
+      CodeInsightContextHighlightingUtil.installCodeInsightContext(highlighter, project, context);
     }
     else {
       highlighter = markupModel.addRangeHighlighterAndChangeAttributes(null, 0, document.getTextLength(), FILE_LEVEL_FAKE_LAYER,
                                                                        HighlighterTargetArea.EXACT_RANGE, false, ex -> {
           BackgroundUpdateHighlightersUtil.associateInfoAndHighlighter(info, ex);
+          CodeInsightContextHighlightingUtil.installCodeInsightContext(ex, project, context);
         });
     }
     highlighter.setGreedyToLeft(true);
@@ -1529,9 +1534,6 @@ public final class HighlightInfoUpdaterImpl extends HighlightInfoUpdater impleme
     // create a fake whole-file highlighter which will track the document size changes
     // and which will make possible to calculate correct `info.getActualEndOffset()`
     info.setGroup(group);
-    if (context != null) {
-      CodeInsightContextHighlightingUtil.installCodeInsightContext(highlighter, project, context);
-    }
     return highlighter;
   }
 }

@@ -34,8 +34,11 @@ class PyVarianceInspection : PyInspection() {
 
   override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean, session: LocalInspectionToolSession): PsiElementVisitor {
     val context = PyInspectionVisitor.getContext(session)
+    if (context.typeEngine != null) {
+      return PsiElementVisitor.EMPTY_VISITOR
+    }
     val typeExpressionVisitor = TypeExpressionVisitor(holder, context)
-    return PotentialLocationsVisitor(typeExpressionVisitor, holder, PyInspectionVisitor.getContext(session))
+    return PotentialLocationsVisitor(typeExpressionVisitor, holder, context)
   }
 
   private class PotentialLocationsVisitor(
@@ -127,6 +130,7 @@ class PyVarianceInspection : PyInspection() {
     context: TypeEvalContext,
   ) {
     val varianceExpected = PyExpectedVarianceJudgment.getExpectedVariance(node, context) ?: return
+    if (varianceExpected == BIVARIANT) return
     val varianceInferred = PyInferredVarianceJudgment.getInferredVariance(node, context) ?: return
 
     if (!isCompatibleWith(varianceInferred, varianceExpected)) {

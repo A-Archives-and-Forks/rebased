@@ -9,16 +9,15 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.readAction
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
+import com.intellij.openapi.module.Module
 import com.intellij.openapi.progress.runBlockingMaybeCancellable
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.openapi.util.Key
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileManager
-import com.intellij.psi.util.CachedValue
-import com.intellij.psi.util.CachedValueProvider
-import com.intellij.psi.util.CachedValuesManager
 import com.intellij.python.pyproject.PY_PROJECT_TOML
+import com.intellij.serviceContainer.AlreadyDisposedException
 import com.intellij.util.cancelOnDispose
 import com.intellij.util.concurrency.annotations.RequiresBackgroundThread
 import com.intellij.util.messages.Topic
@@ -47,6 +46,7 @@ import org.jetbrains.annotations.Nls
 import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.jvm.Throws
 
 
 /**
@@ -54,17 +54,25 @@ import kotlin.coroutines.cancellation.CancellationException
  * @see com.jetbrains.python.packaging.management.ui.PythonPackageManagerUI to execute commands with UI handlers
  */
 @ApiStatus.Experimental
-abstract class PythonPackageManager(val project: Project, val sdk: Sdk) : Disposable.Default {
+abstract class PythonPackageManager @ApiStatus.Internal constructor(
+  val project: Project,
+  val sdk: Sdk,
+  /**
+   * Whether this manager has an explicit list of top-level dependencies (e.g. from pyproject.toml).
+   * When true, only packages from [extractDependenciesCached] are treated as "declared" in the UI,
+   * and the rest are shown as transitive.
+   * When false (default), all installed packages are considered declared.
+   */
+  internal val installedMightBeTransitive: Boolean = false,
+) : Disposable.Default {
   private val isInited = AtomicBoolean(false)
-  private val initializationJob = if (!shouldBeInitInstantly()) {
-    PyPackageCoroutine.launch(project, NON_INTERACTIVE_ROOT_TRACE_CONTEXT, start = CoroutineStart.LAZY) {
-      initInstalledPackages()
-    }.also {
-      it.cancelOnDispose(this)
-    }
-  }
-  else {
-    null
+
+  private val dependencyCache = DependencyCache()
+
+  private val initializationJob = PyPackageCoroutine.launch(project, NON_INTERACTIVE_ROOT_TRACE_CONTEXT, start = CoroutineStart.LAZY) {
+    initInstalledPackages()
+  }.also {
+    it.cancelOnDispose(this)
   }
 
 
@@ -75,15 +83,6 @@ abstract class PythonPackageManager(val project: Project, val sdk: Sdk) : Dispos
   @ApiStatus.Internal
   @Volatile
   protected var outdatedPackages: Map<String, PythonOutdatedPackage> = emptyMap()
-
-  private fun createCachedDependencies(dependencyFile: VirtualFile): CachedValue<Deferred<PyResult<List<PythonPackage>>?>> =
-    CachedValuesManager.getManager(project).createCachedValue {
-      val scope = PyPackageCoroutine.getScope(project)
-      val deferred = scope.async(NON_INTERACTIVE_ROOT_TRACE_CONTEXT, start = CoroutineStart.LAZY) {
-        extractDependencies()
-      }
-      CachedValueProvider.Result.create(deferred, dependencyFile)
-    }
 
   abstract val repositoryManager: PythonRepositoryManager
 
@@ -97,18 +96,25 @@ abstract class PythonPackageManager(val project: Project, val sdk: Sdk) : Dispos
   }
 
   @ApiStatus.Internal
-  suspend fun installPackage(installRequest: PythonPackageInstallRequest, options: List<String> = emptyList()): PyResult<List<PythonPackage>> {
+  suspend fun installPackage(
+    installRequest: PythonPackageInstallRequest,
+    options: List<String> = emptyList(),
+    module: Module? = null,
+  ): PyResult<List<PythonPackage>> {
     if (sdk.isReadOnly) {
       return PyResult.localizedError(sdk.readOnlyErrorMessage)
     }
     waitForInit()
-    installPackageCommand(installRequest, options).getOr { return it }
+    installPackageCommand(installRequest, options, module).getOr { return it }
 
     return reloadPackages()
   }
 
   @ApiStatus.Internal
-  suspend fun installPackageDetached(installRequest: PythonPackageInstallRequest, options: List<String> = emptyList()): PyResult<List<PythonPackage>> {
+  suspend fun installPackageDetached(
+    installRequest: PythonPackageInstallRequest,
+    options: List<String> = emptyList(),
+  ): PyResult<List<PythonPackage>> {
     waitForInit()
     installPackageDetachedCommand(installRequest, options).getOr { return it }
 
@@ -152,18 +158,20 @@ abstract class PythonPackageManager(val project: Project, val sdk: Sdk) : Dispos
       return it
     }
 
-    if (packages != installedPackages) {
-      if (!isInit) {
-        refreshPaths(project, sdk)
-      }
+    val changed = packages != installedPackages
+    if (changed) {
       installedPackages = packages
-      PyPackageCoroutine.launch(project, NON_INTERACTIVE_ROOT_TRACE_CONTEXT) {
-        reloadOutdatedPackages()
-      }.cancelOnDispose(this)
 
       ApplicationManager.getApplication().messageBus.apply {
         syncPublisher(PACKAGE_MANAGEMENT_TOPIC).packagesChanged(sdk)
         syncPublisher(PyPackageManager.PACKAGE_MANAGER_TOPIC).packagesRefreshed(sdk)
+      }
+
+      PyPackageCoroutine.launch(project, NON_INTERACTIVE_ROOT_TRACE_CONTEXT) {
+        reloadOutdatedPackages()
+      }.cancelOnDispose(this)
+      if (!isInit) {
+        refreshPaths(project, sdk)
       }
     }
 
@@ -171,25 +179,25 @@ abstract class PythonPackageManager(val project: Project, val sdk: Sdk) : Dispos
   }
 
 
-  @ApiStatus.Internal
+  @ApiStatus.Experimental
   suspend fun listInstalledPackages(): List<PythonPackage> {
     waitForInit()
     return listInstalledPackagesSnapshot()
   }
 
-  @ApiStatus.Internal
+  @ApiStatus.Experimental
   fun listInstalledPackagesSnapshot(): List<PythonPackage> {
     return installedPackages
   }
 
-  @ApiStatus.Internal
+  @ApiStatus.Experimental
   suspend fun listOutdatedPackages(): Map<String, PythonOutdatedPackage> {
     waitForInit()
     return listOutdatedPackagesSnapshot()
   }
 
 
-  @ApiStatus.Internal
+  @ApiStatus.Experimental
   fun listOutdatedPackagesSnapshot(): Map<String, PythonOutdatedPackage> {
     return outdatedPackages
   }
@@ -220,13 +228,21 @@ abstract class PythonPackageManager(val project: Project, val sdk: Sdk) : Dispos
   @ApiStatus.Internal
   open fun syncErrorMessage(): PackageManagerErrorMessage? = null
 
+  /**
+   * @param module the target workspace member module for workspace-aware package managers (e.g., UV).
+   *   When provided, the package is added as a dependency of this specific workspace member
+   *   rather than the root project. Package managers that do not support workspaces ignore this parameter.
+   */
   @ApiStatus.Internal
   @CheckReturnValue
-  protected abstract suspend fun installPackageCommand(installRequest: PythonPackageInstallRequest, options: List<String>): PyResult<Unit>
+  protected abstract suspend fun installPackageCommand(installRequest: PythonPackageInstallRequest, options: List<String>, module: Module? = null): PyResult<Unit>
 
   @ApiStatus.Internal
   @CheckReturnValue
-  protected open suspend fun installPackageDetachedCommand(installRequest: PythonPackageInstallRequest, options: List<String>): PyResult<Unit> =
+  protected open suspend fun installPackageDetachedCommand(
+    installRequest: PythonPackageInstallRequest,
+    options: List<String>,
+  ): PyResult<Unit> =
     installPackageCommand(installRequest, options)
 
   @ApiStatus.Internal
@@ -251,18 +267,27 @@ abstract class PythonPackageManager(val project: Project, val sdk: Sdk) : Dispos
   open suspend fun extractDependencies(): PyResult<List<PythonPackage>>? = null
 
   /**
+   * Returns all packages that are declared in the project configuration or are transitive
+   * dependencies of declared packages. Used by the UI to distinguish "declared" packages from
+   * standalone-installed ones.
+   *
+   * Returns null if this package manager doesn't support this operation.
+   */
+  @ApiStatus.Internal
+  open suspend fun allDeclaredPackages(): List<PythonPackage>? = null
+
+  /**
    * Extracts project top-level dependencies with caching based on dependency file modification time.
    * Returns cached result if dependency file hasn't changed since last extraction.
-   * Uses Platform's CachedValuesManager with the dependency file as an invalidation dependency.
    *
    * @return null if this package manager doesn't support dependency extraction,
    *         PyResult.Failure if extraction is supported but failed (e.g., parsing error),
    *         PyResult.Success with the list of dependencies if extraction succeeded.
    */
-  @ApiStatus.Internal
+  @ApiStatus.Experimental
   suspend fun extractDependenciesCached(): PyResult<List<PythonPackage>>? {
     val dependencyFile = getDependencyFile() ?: return null
-    return createCachedDependencies(dependencyFile).value.await()
+    return dependencyCache.getOrCompute(dependencyFile).await()
   }
 
   /**
@@ -270,6 +295,7 @@ abstract class PythonPackageManager(val project: Project, val sdk: Sdk) : Dispos
    * Returns null if no dependency file is associated with this package manager.
    */
   @ApiStatus.Internal
+  @RequiresBackgroundThread
   open fun getDependencyFile(): VirtualFile? = null
 
 
@@ -293,10 +319,7 @@ abstract class PythonPackageManager(val project: Project, val sdk: Sdk) : Dispos
 
   @ApiStatus.Internal
   suspend fun waitForInit() {
-    initializationJob?.join()
-    if (shouldBeInitInstantly()) {
-      initInstalledPackages()
-    }
+    initializationJob.join()
   }
 
   private suspend fun initInstalledPackages() {
@@ -315,24 +338,33 @@ abstract class PythonPackageManager(val project: Project, val sdk: Sdk) : Dispos
     }
   }
 
-  //Some test on EDT so need to be inited on first create
-  private fun shouldBeInitInstantly(): Boolean = ApplicationManager.getApplication().isUnitTestMode
+  private inner class DependencyCache {
+    private var entry: Entry? = null
+
+    @Synchronized
+    fun getOrCompute(dependencyFile: VirtualFile): Deferred<PyResult<List<PythonPackage>>?> {
+      val stamp = dependencyFile.modificationStamp
+      val cached = entry?.takeIf { it.file == dependencyFile && it.stamp == stamp }
+      return cached?.deferred ?: run {
+        PyPackageCoroutine.getScope(project).async(NON_INTERACTIVE_ROOT_TRACE_CONTEXT, start = CoroutineStart.LAZY) {
+          extractDependencies()
+        }.also { entry = Entry(dependencyFile, stamp, it) }
+      }
+    }
+
+    private inner class Entry(val file: VirtualFile, val stamp: Long, val deferred: Deferred<PyResult<List<PythonPackage>>?>)
+  }
 
   companion object {
-    @RequiresBackgroundThread
+    @Throws(AlreadyDisposedException::class)
     fun forSdk(project: Project, sdk: Sdk): PythonPackageManager {
       val pythonPackageManagerService = project.service<PythonPackageManagerService>()
-      val manager = pythonPackageManagerService.forSdk(project, sdk)
-      if (manager.shouldBeInitInstantly()) {
-        runBlockingMaybeCancellable {
-          manager.initInstalledPackages()
-        }
-      }
-      return manager
+      return pythonPackageManagerService.forSdk(project, sdk)
     }
 
     @Topic.AppLevel
-    val PACKAGE_MANAGEMENT_TOPIC: Topic<PythonPackageManagementListener> = Topic(PythonPackageManagementListener::class.java, Topic.BroadcastDirection.TO_DIRECT_CHILDREN)
+    val PACKAGE_MANAGEMENT_TOPIC: Topic<PythonPackageManagementListener> =
+      Topic(PythonPackageManagementListener::class.java, Topic.BroadcastDirection.TO_DIRECT_CHILDREN)
     val RUNNING_PACKAGING_TASKS: Key<Boolean> = Key.create("PyPackageRequirementsInspection.RunningPackagingTasks")
 
     @ApiStatus.Internal
