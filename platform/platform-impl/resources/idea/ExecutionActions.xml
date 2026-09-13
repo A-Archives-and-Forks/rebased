@@ -62,7 +62,7 @@
 
     <reference ref="RunConfiguration.Group"/>
 
-    <group id="RunContextGroup" popup="false">
+    <group id="RunContextGroup" popup="false" class="com.intellij.openapi.actionSystem.EmptyActionGroup">
       <group id="RunContextGroupInner">
         <!-- A dynamic group filled with executor actions -->
         <group id="RunContextExecutorsGroup"/>
@@ -153,14 +153,14 @@
     </reference>
 
     <!--region TouchBar -->
-    <group id="TouchBarDebug">
+    <group id="TouchBarDebug" class="com.intellij.openapi.actionSystem.EmptyActionGroup">
       <reference ref="Rerun"/>
       <reference ref="Stop"/>
 
       <add-to-group group-id="TouchBar" anchor="last"/>
     </group>
 
-    <group id="TouchBarDefaultExecution">
+    <group id="TouchBarDefaultExecution" class="com.intellij.openapi.actionSystem.EmptyActionGroup">
       <reference ref="RunConfiguration"/>
       <group id="RunnerActionsTouchbar"/> <!--filled from ExecutorRegistry-->
       <reference ref="Stop"/>

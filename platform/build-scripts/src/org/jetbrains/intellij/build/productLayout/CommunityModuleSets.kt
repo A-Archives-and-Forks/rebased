@@ -117,6 +117,9 @@ object CommunityModuleSets {
     moduleSet(essentialMinimal())
 
     // TODO: may be debugger shouldn't be essential? E.g. gateway doesn't need it.
+    // ideally in rebased we would just remove this but gittoolbox depends on it for some reason.
+    // when this is resolved upstream we can probably open an issue on gittoolbox to remove the
+    // dependency if it's no longer guaranteed to be present in every official jetbrains IDE
     moduleSet(debugger())
 
     module("intellij.platform.scopes")

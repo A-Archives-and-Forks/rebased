@@ -20,7 +20,7 @@ object CommunityProductFragments {
     // Module capability aliases
     alias("com.intellij.modules.platform")
     alias("com.intellij.modules.lang")
-    alias("com.intellij.modules.lang.actions")
+    //alias("com.intellij.modules.lang.actions")
   }
 
   /**

@@ -1,28 +1,30 @@
 <idea-plugin>
   <actions>
-    <action id="RunConfiguration" class="com.intellij.execution.actions.RunConfigurationsComboBoxAction"/>
-    <action id="ChooseRunConfiguration" class="com.intellij.execution.actions.ChooseRunConfigurationPopupAction" icon="AllIcons.Actions.Execute"/>
-    <action id="ChooseDebugConfiguration" class="com.intellij.execution.actions.ChooseDebugConfigurationPopupAction" icon="AllIcons.Actions.StartDebugger"/>
+    <!--we don't want execution in rebased, so we disable its actions. ideally we would just disable this plugin entirely, but for some
+    reason when i remove it from `CoreModuleSets.CoreLang` the ide crashes on launch saying the code plugin is missing.-->
+    <action id="RunConfiguration" class="com.intellij.openapi.actionSystem.EmptyAction"/>
+    <action id="ChooseRunConfiguration" class="com.intellij.openapi.actionSystem.EmptyAction" icon="AllIcons.Actions.Execute"/>
+    <action id="ChooseDebugConfiguration" class="com.intellij.openapi.actionSystem.EmptyAction" icon="AllIcons.Actions.StartDebugger"/>
     <group id="CreateRunConfiguration" class="com.intellij.execution.actions.CreateAction"/>
     <action id="SaveTemporaryRunConfiguration" class="com.intellij.execution.actions.SaveTemporaryRunConfigurationAction"/>
     <action id="DeleteRunConfiguration" class="com.intellij.execution.actions.DeleteRunConfigurationAction"/>
     <group id="CreateNewRunConfiguration" class="com.intellij.execution.actions.CreateNewConfigurationAction"/>
     <!--region Run Main Menu-->
-    <action id="Rerun" class="com.intellij.execution.runners.FakeRerunAction"/>
+    <action id="Rerun" class="com.intellij.openapi.actionSystem.EmptyAction"/>
     <action id="RerunTests" class="com.intellij.execution.runners.RerunTestsAction"/>
-    <action id="editRunConfigurations" class="com.intellij.execution.actions.EditRunConfigurationsAction"/>
-    <action id="ManageTargets" class="com.intellij.execution.target.ManageTargetEnvironmentsAction"/>
-    <action id="Stop" class="com.intellij.execution.actions.StopAction" icon="AllIcons.Actions.Suspend"/>
-    <action id="StopBackgroundProcesses" class="com.intellij.execution.actions.StopBackgroundProcessesAction"/>
-    <action id="ShowLiveRunConfigurations" class="com.intellij.execution.actions.ShowRunningListAction"/>
+    <action id="editRunConfigurations" class="com.intellij.openapi.actionSystem.EmptyAction"/>
+    <action id="ManageTargets" class="com.intellij.openapi.actionSystem.EmptyAction"/>
+    <action id="Stop" class="com.intellij.openapi.actionSystem.EmptyAction" icon="AllIcons.Actions.Suspend"/>
+    <action id="StopBackgroundProcesses" class="com.intellij.openapi.actionSystem.EmptyAction"/>
+    <action id="ShowLiveRunConfigurations" class="com.intellij.openapi.actionSystem.EmptyAction"/>
     <action id="NewUiRunWidget" class="com.intellij.execution.ui.RedesignedRunToolbarWrapper"/>
-    <action class="com.intellij.execution.ui.RedesignedRunConfigurationSelector" id="RedesignedRunConfigurationSelector"/>
-    <group id="RunToolbarTopLevelExecutorActionGroup" class="com.intellij.execution.ui.RunToolbarTopLevelExecutorActionGroup" popup="false"/>
-    <action id="MoreRunToolbarActions" class="com.intellij.execution.ui.MoreRunToolbarActions" />
-    <action id="InactiveStopActionPlaceholder" class="com.intellij.execution.ui.InactiveStopActionPlaceholder" />
-    <action id="AllRunConfigurationsToggle" class="com.intellij.execution.ui.AllRunConfigurationsToggle"/>
-    <group id="RunConfigurationsActionGroup" class="com.intellij.execution.ui.RunConfigurationsActionGroup"/>
-    <action id="Runner.ToggleTabLabels" class="com.intellij.execution.ui.layout.actions.ToggleShowTabLabelsAction"/>
+    <action class="com.intellij.openapi.actionSystem.EmptyAction" id="RedesignedRunConfigurationSelector"/>
+    <group id="RunToolbarTopLevelExecutorActionGroup" class="com.intellij.openapi.actionSystem.EmptyActionGroup" popup="false"/>
+    <action id="MoreRunToolbarActions" class="com.intellij.openapi.actionSystem.EmptyAction" />
+    <action id="InactiveStopActionPlaceholder" class="com.intellij.openapi.actionSystem.EmptyAction" />
+    <action id="AllRunConfigurationsToggle" class="com.intellij.openapi.actionSystem.EmptyAction"/>
+    <group id="RunConfigurationsActionGroup" class="com.intellij.openapi.actionSystem.EmptyActionGroup"/>
+    <action id="Runner.ToggleTabLabels" class="com.intellij.openapi.actionSystem.EmptyAction"/>
     <action id="Runner.RestoreLayout" class="com.intellij.execution.ui.layout.actions.RestoreLayoutAction"
             icon="AllIcons.Debugger.RestoreLayout"/>
     <action id="Runner.CloseView" class="com.intellij.execution.ui.layout.actions.CloseViewAction" icon="AllIcons.Actions.Close"/>
@@ -30,7 +32,7 @@
     <action id="Runner.CloseAllViews" class="com.intellij.execution.ui.layout.actions.CloseAllViewsAction" icon="AllIcons.Actions.Close"/>
     <action id="Runner.CloseAllUnpinnedViews" class="com.intellij.execution.ui.layout.actions.CloseAllUnpinnedViewsAction" icon="AllIcons.Actions.Close"/>
     <action id="SendEOF" class="com.intellij.execution.actions.EOFAction"/>
-    <action class="com.intellij.execution.actions.ActivateRunToolWindowAction" id="ActivateRunToolWindow"/>
+    <action class="com.intellij.openapi.actionSystem.EmptyAction" id="ActivateRunToolWindow"/>
     <action id="WslSyncAction" class="com.intellij.execution.wsl.target.WslSyncAction" internal="true"/>
     <action id="TerminalIncreaseFontSize" class="com.intellij.openapi.editor.actions.TerminalChangeFontSizeAction$IncreaseEditorFontSize"
             use-shortcut-of="EditorIncreaseFontSize">
@@ -76,7 +78,7 @@
     <group id="RunContextGroupMore" class="com.intellij.ide.actions.SmartPopupActionGroup" overrides="true" keep-content="true"/>
     <group id="BuildMenu" class="com.intellij.ide.actions.NonEmptyActionGroup" overrides="true" keep-content="true"/>
     <group id="RunTab.TopToolbar.More" class="com.intellij.openapi.actionSystem.impl.MoreActionGroup"/>
-    <group id="RunnerLayoutActions">
+    <group id="RunnerLayoutActions" class="com.intellij.openapi.actionSystem.EmptyActionGroup">
       <reference ref="Runner.ToggleTabLabels"/>
       <group id="Runner.Layout">
         <reference ref="Runner.RestoreLayout"/>
@@ -116,24 +118,24 @@
       <reference ref="SaveTemporaryRunConfiguration"/>
       <reference ref="DeleteRunConfiguration"/>
     </group>
-    <group id="RunContextPopupGroup" popup="false">
+    <group id="RunContextPopupGroup" popup="false" class="com.intellij.openapi.actionSystem.EmptyActionGroup">
       <reference ref="RunContextGroup"/>
     </group>
-    <group id="ProjectViewPopupMenuRunGroup">
+    <group id="ProjectViewPopupMenuRunGroup" class="com.intellij.openapi.actionSystem.EmptyActionGroup">
       <reference ref="RunContextPopupGroup"/>
     </group>
-    <group id="RunLineMarkerExtraActions">
+    <group id="RunLineMarkerExtraActions" class="com.intellij.openapi.actionSystem.EmptyActionGroup">
       <reference ref="CreateRunConfiguration"/>
     </group>
-    <group id="ExecutionTargetsToolbarGroup" searchable="false" popup="false">
+    <group id="ExecutionTargetsToolbarGroup" searchable="false" popup="false" class="com.intellij.openapi.actionSystem.EmptyActionGroup">
       <reference ref="ExecutionTargets"/>
     </group>
     <!--region Main Toolbar -->
-    <group id="ToolbarRunGroup">
+    <group id="ToolbarRunGroup" class="com.intellij.openapi.actionSystem.EmptyActionGroup">
       <reference ref="RunConfiguration"/>
       <reference ref="RunnerActions"/>
       <reference ref="Stop"/>
     </group>
-    <group id="RunTestGroup"/>
+    <group id="RunTestGroup" class="com.intellij.openapi.actionSystem.EmptyActionGroup"/>
   </actions>
 </idea-plugin>

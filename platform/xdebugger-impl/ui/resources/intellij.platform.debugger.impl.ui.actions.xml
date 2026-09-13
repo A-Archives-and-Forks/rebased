@@ -257,20 +257,20 @@
   </actions>
 
   <actions>
-    <action id="EditBreakpoint" class="com.intellij.xdebugger.impl.actions.EditBreakpointAction"/>
+    <action id="EditBreakpoint" class="com.intellij.openapi.actionSystem.EmptyAction"/>
     <action id="Resume" class="com.intellij.xdebugger.impl.actions.ResumeAction" icon="AllIcons.Actions.Resume"/>
     <action id="Pause" class="com.intellij.xdebugger.impl.actions.PauseAction" icon="AllIcons.Actions.Pause"/>
     <action id="StepOver" class="com.intellij.xdebugger.impl.actions.StepOverAction"
             icon="AllIcons.Actions.TraceOver"/>
-    <action id="ForceStepOver" class="com.intellij.xdebugger.impl.actions.ForceStepOverAction" icon="AllIcons.Debugger.ForceStepOver"/>
-    <action id="StepInto" class="com.intellij.xdebugger.impl.actions.StepIntoAction" icon="AllIcons.Actions.TraceInto"/>
-    <action id="SmartStepInto" class="com.intellij.xdebugger.impl.actions.SmartStepIntoAction" icon="AllIcons.Debugger.SmartStepInto"/>
-    <action id="StepOut" class="com.intellij.xdebugger.impl.actions.StepOutAction" icon="AllIcons.Actions.StepOut"/>
-    <action id="RunToCursor" class="com.intellij.xdebugger.impl.actions.RunToCursorAction" icon="AllIcons.Actions.RunToCursor"/>
-    <action id="ForceRunToCursor" class="com.intellij.xdebugger.impl.actions.ForceRunToCursorAction" icon="AllIcons.Debugger.ForceRunToCursor"/>
-    <action id="Debugger.PopFrame" class="com.intellij.xdebugger.impl.actions.ResetFrameAction" icon="AllIcons.Actions.InlineDropFrame"/>
-    <action id="EvaluateExpression" class="com.intellij.xdebugger.impl.actions.EvaluateAction" icon="AllIcons.Debugger.EvaluateExpression"/>
-    <action id="ShowExecutionPoint" class="com.intellij.xdebugger.impl.actions.ShowExecutionPointAction"
+    <action id="ForceStepOver" class="com.intellij.openapi.actionSystem.EmptyAction" icon="AllIcons.Debugger.ForceStepOver"/>
+    <action id="StepInto" class="com.intellij.openapi.actionSystem.EmptyAction" icon="AllIcons.Actions.TraceInto"/>
+    <action id="SmartStepInto" class="com.intellij.openapi.actionSystem.EmptyAction" icon="AllIcons.Debugger.SmartStepInto"/>
+    <action id="StepOut" class="com.intellij.openapi.actionSystem.EmptyAction" icon="AllIcons.Actions.StepOut"/>
+    <action id="RunToCursor" class="com.intellij.openapi.actionSystem.EmptyAction" icon="AllIcons.Actions.RunToCursor"/>
+    <action id="ForceRunToCursor" class="com.intellij.openapi.actionSystem.EmptyAction" icon="AllIcons.Debugger.ForceRunToCursor"/>
+    <action id="Debugger.PopFrame" class="com.intellij.openapi.actionSystem.EmptyAction" icon="AllIcons.Actions.InlineDropFrame"/>
+    <action id="EvaluateExpression" class="com.intellij.openapi.actionSystem.EmptyAction" icon="AllIcons.Debugger.EvaluateExpression"/>
+    <action id="ShowExecutionPoint" class="com.intellij.openapi.actionSystem.EmptyAction"
             icon="AllIcons.Debugger.ShowCurrentFrame"/>
     <action id="ToggleLineBreakpoint" class="com.intellij.xdebugger.impl.actions.ToggleLineBreakpointAction">
       <override-text place="MainMenu"/>
@@ -279,20 +279,20 @@
       <override-text place="MainMenu"/>
     </action>
     <action id="ToggleBreakpointEnabled" class="com.intellij.xdebugger.impl.actions.ToggleBreakpointEnabledAction"/>
-    <action id="ViewBreakpoints" class="com.intellij.xdebugger.impl.actions.ViewBreakpointsAction" icon="AllIcons.Debugger.ViewBreakpoints"/>
-    <action id="ForceStepInto" class="com.intellij.xdebugger.impl.actions.ForceStepIntoAction" icon="AllIcons.Debugger.ForceStepInto"/>
-    <group id="Resume.Ref">
+    <action id="ViewBreakpoints" class="com.intellij.openapi.actionSystem.EmptyAction" icon="AllIcons.Debugger.ViewBreakpoints"/>
+    <action id="ForceStepInto" class="com.intellij.openapi.actionSystem.EmptyAction" icon="AllIcons.Debugger.ForceStepInto"/>
+    <group id="Resume.Ref" class="com.intellij.openapi.actionSystem.EmptyActionGroup">
       <reference ref="Resume"/>
     </group>
-    <group id="Pause.Ref">
+    <group id="Pause.Ref" class="com.intellij.openapi.actionSystem.EmptyActionGroup">
       <reference ref="Pause"/>
     </group>
-    <group id="StepOver.Ref">
+    <group id="StepOver.Ref" class="com.intellij.openapi.actionSystem.EmptyActionGroup">
       <reference ref="StepOver"/>
     </group>
-    <group id="DebugMainMenu">
+    <group id="DebugMainMenu" class="com.intellij.openapi.actionSystem.EmptyActionGroup">
       <separator/>
-      <group id="DebuggingActionsGroup" popup="true">
+      <group id="DebuggingActionsGroup" popup="true" class="com.intellij.openapi.actionSystem.EmptyActionGroup">
         <reference ref="DebugReloadGroup"/>
         <separator/>
         <reference ref="StepOver.Ref"/>
@@ -311,7 +311,7 @@
         <reference ref="ShowExecutionPoint"/>
         <separator/>
       </group>
-      <group id="BreakpointActionsGroup" popup="true">
+      <group id="BreakpointActionsGroup" popup="true" class="com.intellij.openapi.actionSystem.EmptyActionGroup">
         <reference ref="Debugger.RestoreBreakpoint"/>
         <reference ref="ToggleLineBreakpoint"/>
         <reference ref="ToggleTemporaryLineBreakpoint"/>
