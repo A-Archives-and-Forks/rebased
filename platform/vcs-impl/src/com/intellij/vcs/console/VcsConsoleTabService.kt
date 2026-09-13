@@ -12,6 +12,7 @@ import com.intellij.openapi.vcs.VcsConsoleLine
 import com.intellij.openapi.vcs.changes.ui.ChangesViewContentManager
 import com.intellij.ui.content.Content
 import com.intellij.ui.content.impl.ContentImpl
+import com.intellij.util.cancelOnDispose
 import com.intellij.util.concurrency.annotations.RequiresEdt
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
@@ -164,7 +165,7 @@ internal class VcsConsoleTabServiceImpl(
   }
 
   @RequiresEdt
-  private fun createConsoleContentTab(contentTab: Content) {
+  override fun setupConsoleContentTab(contentTab: Content) {
     val consoleView = getOrCreateConsoleView()
 
     val panel = SimpleToolWindowPanel(false, true)
