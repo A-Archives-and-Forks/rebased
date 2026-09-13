@@ -10,6 +10,7 @@ import org.jetbrains.intellij.build.impl.qodana.QodanaProductProperties
 import org.jetbrains.intellij.build.io.copyDir
 import org.jetbrains.intellij.build.io.copyFileToDir
 import org.jetbrains.intellij.build.productLayout.CommunityModuleSets
+import org.jetbrains.intellij.build.productLayout.CommunityProductFragments.platformCoreFragment
 import org.jetbrains.intellij.build.productLayout.ProductModulesContentSpec
 import org.jetbrains.intellij.build.productLayout.productModules
 import java.nio.file.Path
@@ -212,6 +213,8 @@ fun intellijCommunityBaseFragment(platformPrefix: String? = null): ProductModule
   //}
   //
   //include(CommunityProductFragments.javaIdeBaseFragment())
+  // this is part of javaIdeBaseFragment but since we don't include that we need to include it here
+  include(platformCoreFragment())
 
   // from upstream:
   //module("intellij.platform.coverage")
