@@ -181,8 +181,6 @@ internal class VcsConsoleTabServiceImpl(
     contentTab.putUserData(ChangesViewContentManager.ORDER_WEIGHT_KEY,
                            ChangesViewContentManager.TabOrderWeight.CONSOLE.weight)
     contentTab.setDisposer(consoleView)
-
-    ChangesViewContentManager.getInstance(project).addContent(contentTab)
   }
 
   @OptIn(ExperimentalCoroutinesApi::class)
