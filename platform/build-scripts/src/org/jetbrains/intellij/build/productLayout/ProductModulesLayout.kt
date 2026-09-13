@@ -33,7 +33,9 @@ val DEFAULT_BUNDLED_PLUGINS: PersistentList<String> = persistentListOf(
   "intellij.platform.recentFiles.plugin",
   //"intellij.platform.structuralSearch.plugin",
   "intellij.platform.structureView.plugin",
-  //"intellij.platform.tasks.plugin",
+  // this seems like bloat (it's used for the Task Management plugin) which we would ideally disable in rebased,
+  // but GitToolBox depends on it. it's a very popular 3rd party git-focused plugin so we make an effort to support it
+  "intellij.platform.tasks.plugin",
   //"intellij.platform.execution.serviceView.plugin",
   //"intellij.platform.todo.plugin",
   "intellij.platform.vcs.plugin",
