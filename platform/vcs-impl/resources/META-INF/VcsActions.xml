@@ -681,6 +681,12 @@
     <group id="Vcs.Internal" internal="true" popup="true">
       <add-to-group group-id="Internal"/>
     </group>
+    <!-- upstream this is defined in the java plugin for some insane reason so we move it here in rebased -->
+    <action id="ProjectFromVersionControl" class="com.intellij.openapi.wm.impl.welcomeScreen.GetFromVersionControlAction">
+      <override-text place="ProjectWidgetPopup"/>
+      <add-to-group group-id="NewProjectOrModuleGroup"/>
+      <add-to-group group-id="ProjectWidget.Actions" anchor="after" relative-to-action="OpenFile"/>
+    </action>
   </actions>
 
   <actions resource-bundle="messages.VcsBundle">
